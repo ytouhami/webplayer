@@ -93,6 +93,34 @@ export async function authenticate(username: string, password: string): Promise<
 	return null;
 }
 
+// null means "no expiry" (Xtream returns null/empty exp_date for unlimited
+// accounts) rather than a parse failure.
+export async function getAccountExpiry(session: UserSession): Promise<Date | null> {
+	const url = buildApiUrl(session.hostUrl, session.username, session.password);
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+	try {
+		const response = await fetch(url, {
+			signal: controller.signal,
+			headers: { 'User-Agent': PLAYER_USER_AGENT }
+		});
+		if (!response.ok) return null;
+
+		const data = await response.json();
+		const expDate = data?.user_info?.exp_date;
+		if (!expDate) return null;
+
+		const date = new Date(Number(expDate) * 1000);
+		return Number.isNaN(date.getTime()) ? null : date;
+	} catch (err) {
+		console.error(`[iptv] account expiry fetch error: ${err instanceof Error ? err.message : err}`);
+		return null;
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
 export type LiveChannel = {
 	id: number;
 	name: string;

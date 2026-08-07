@@ -221,9 +221,7 @@
 	</main>
 
 	<footer class="status-bar">
-		<span>Subscription: <b>Unlimited</b></span>
-		<a href="#">Remove ads</a>
-		<span>Connected via <b>provider account</b></span>
+		<span>Subscription: <b>{data.expiryLabel}</b></span>
 	</footer>
 </div>
 
@@ -568,19 +566,12 @@
 	.status-bar {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		justify-content: center;
 		padding: 1rem 2.5rem;
 		border-top: 1px solid var(--border);
 		font-family: var(--font-mono);
 		font-size: 0.72rem;
 		color: var(--text-faint);
-	}
-	.status-bar a {
-		color: var(--text-dim);
-		text-decoration: underline;
-	}
-	.status-bar a:hover {
-		color: var(--accent-ui);
 	}
 	.status-bar b {
 		color: var(--text-dim);
