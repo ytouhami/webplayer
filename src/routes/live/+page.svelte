@@ -17,7 +17,9 @@
 	let searchQuery = $state('');
 	let activeIndex = $state(0);
 	let isPlaying = $state(false);
+	let isBuffering = $state(true);
 	let isMuted = $state(true);
+	let volume = $state(100);
 
 	let videoEl: HTMLVideoElement;
 	let playerShellEl: HTMLDivElement;
@@ -55,6 +57,7 @@
 
 	function selectChannel(i: number) {
 		activeIndex = i;
+		isBuffering = true;
 		const channel = data.channels[i];
 		if (channel) loadChannel(channel.id);
 	}
@@ -74,11 +77,20 @@
 		if (!videoEl) return;
 		const onPlay = () => (isPlaying = true);
 		const onPause = () => (isPlaying = false);
+		// "playing" fires once frames are actually rendering — that's the real
+		// signal to hide the loading visualizer, not "play" (which just means
+		// playback was requested, before the buffer is ready).
+		const onPlaying = () => (isBuffering = false);
+		const onWaiting = () => (isBuffering = true);
 		videoEl.addEventListener('play', onPlay);
 		videoEl.addEventListener('pause', onPause);
+		videoEl.addEventListener('playing', onPlaying);
+		videoEl.addEventListener('waiting', onWaiting);
 		return () => {
 			videoEl.removeEventListener('play', onPlay);
 			videoEl.removeEventListener('pause', onPause);
+			videoEl.removeEventListener('playing', onPlaying);
+			videoEl.removeEventListener('waiting', onWaiting);
 		};
 	});
 
@@ -90,6 +102,18 @@
 	function toggleMute() {
 		isMuted = !isMuted;
 		videoEl.muted = isMuted;
+	}
+
+	function handleVolumeInput(v: number) {
+		volume = v;
+		videoEl.volume = v / 100;
+		if (v === 0) {
+			isMuted = true;
+			videoEl.muted = true;
+		} else if (isMuted) {
+			isMuted = false;
+			videoEl.muted = false;
+		}
 	}
 
 	function toggleFullscreen() {
@@ -162,6 +186,7 @@
 			<div
 				class="player-shell"
 				class:is-playing={isPlaying}
+				class:is-buffering={isBuffering}
 				bind:this={playerShellEl}
 				style={activeChannel ? `--ch-a:${activeChannel.colorA}; --ch-b:${activeChannel.colorB};` : ''}
 			>
@@ -200,6 +225,15 @@
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg>
 							{/if}
 						</button>
+						<input
+							type="range"
+							class="volume-slider"
+							min="0"
+							max="100"
+							value={isMuted ? 0 : volume}
+							aria-label="Volume"
+							oninput={(e) => handleVolumeInput(+e.currentTarget.value)}
+						/>
 						<div class="ctrl-spacer"></div>
 						<button class="ctrl-btn" aria-label="Fullscreen" onclick={toggleFullscreen}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v4M16 3h4v4M8 21H4v-4M16 21h4v-4"/></svg>
@@ -431,6 +465,12 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+		/* Hints the browser to keep this on its own compositor layer so the
+		   native Fullscreen API resize doesn't force a full repaint of the
+		   decode/render pipeline — reduces (does not fully eliminate) the
+		   stall some browsers/GPUs show when a playing video's rendering
+		   surface changes size abruptly. */
+		will-change: transform;
 	}
 	.player-center {
 		position: relative;
@@ -465,7 +505,7 @@
 		pointer-events: none;
 		transition: opacity 0.2s ease;
 	}
-	.player-shell.is-playing .signal-eq {
+	.player-shell.is-buffering .signal-eq {
 		opacity: 0.5;
 	}
 	.player-shell.is-playing .player-center {
@@ -569,6 +609,36 @@
 	.ctrl-btn svg {
 		width: 0.95rem;
 		height: 0.95rem;
+	}
+	.volume-slider {
+		-webkit-appearance: none;
+		appearance: none;
+		width: 5rem;
+		height: 4px;
+		border-radius: 2px;
+		background: rgba(255, 255, 255, 0.25);
+		outline: none;
+		cursor: pointer;
+	}
+	.volume-slider::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: #fff;
+		cursor: pointer;
+	}
+	.volume-slider::-moz-range-thumb {
+		width: 12px;
+		height: 12px;
+		border: 0;
+		border-radius: 50%;
+		background: #fff;
+		cursor: pointer;
+	}
+	.volume-slider:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 2px;
 	}
 	.ctrl-spacer {
 		flex: 1;
