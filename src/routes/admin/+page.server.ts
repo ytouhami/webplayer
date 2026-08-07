@@ -9,6 +9,7 @@ import { clearAdminSession } from '$lib/server/auth';
 import { getAppSettings } from '$lib/server/settings';
 import type { Actions, PageServerLoad } from './$types';
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 const ALLOWED_LOGO_TYPES: Record<string, string> = {
 	'image/png': 'png',
@@ -32,6 +33,10 @@ export const actions: Actions = {
 		const accentColor = data.get('accentColor')?.toString().trim() || '#4FE3D3';
 		const logoAction = data.get('logoAction')?.toString() ?? 'keep';
 		const hostsRaw = data.get('hostsJson')?.toString() ?? '[]';
+
+		if (!HEX_COLOR.test(accentColor)) {
+			return fail(400, { error: 'Accent color must be a hex color like #4FE3D3.' });
+		}
 
 		let parsedHosts: { name: string; url: string }[];
 		try {
