@@ -210,7 +210,7 @@
 		{/if}
 
 		<div class="save-bar">
-			<button class="save-btn" type="submit">
+			<button class="save-btn" type="submit" style="background: {currentAccent};">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
 				Save Changes
 			</button>
