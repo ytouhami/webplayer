@@ -21,3 +21,7 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Uploaded files (runtime content, not source)
+/uploads/*
+!/uploads/.gitkeep
