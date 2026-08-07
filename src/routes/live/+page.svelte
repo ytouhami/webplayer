@@ -1,0 +1,591 @@
+<script lang="ts">
+	import Hls from 'hls.js';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+
+	let theme = $state<'light' | 'dark'>('dark');
+	$effect(() => {
+		theme = (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
+	});
+	function toggleTheme() {
+		theme = theme === 'light' ? 'dark' : 'light';
+		document.documentElement.setAttribute('data-theme', theme);
+		localStorage.setItem('pulse-theme', theme);
+	}
+
+	let searchQuery = $state('');
+	let activeIndex = $state(0);
+	let isPlaying = $state(false);
+	let isMuted = $state(true);
+
+	let videoEl: HTMLVideoElement;
+	let playerShellEl: HTMLDivElement;
+	let hls: Hls | null = null;
+
+	function matches(name: string, query: string) {
+		return !query.trim() || name.toLowerCase().includes(query.trim().toLowerCase());
+	}
+	let shownCount = $derived(data.channels.filter((c) => matches(c.name, searchQuery)).length);
+
+	let activeChannel = $derived(data.channels[activeIndex] as (typeof data.channels)[number] | undefined);
+
+	function loadChannel(channelId: number) {
+		const url = `/api/stream/${channelId}`;
+		if (Hls.isSupported()) {
+			if (!hls) {
+				hls = new Hls({ lowLatencyMode: true });
+				hls.attachMedia(videoEl);
+				hls.on(Hls.Events.MANIFEST_PARSED, () => {
+					videoEl.play().catch(() => {});
+				});
+				hls.on(Hls.Events.ERROR, (_event, data) => {
+					if (!data.fatal) return;
+					console.error('[hls]', data.type, data.details);
+					if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
+					else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
+				});
+			}
+			hls.loadSource(url);
+		} else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+			videoEl.src = url;
+			videoEl.play().catch(() => {});
+		}
+	}
+
+	function selectChannel(i: number) {
+		activeIndex = i;
+		const channel = data.channels[i];
+		if (channel) loadChannel(channel.id);
+	}
+
+	$effect(() => {
+		if (videoEl && data.channels.length > 0) {
+			videoEl.muted = true;
+			selectChannel(0);
+		}
+		return () => {
+			hls?.destroy();
+			hls = null;
+		};
+	});
+
+	$effect(() => {
+		if (!videoEl) return;
+		const onPlay = () => (isPlaying = true);
+		const onPause = () => (isPlaying = false);
+		videoEl.addEventListener('play', onPlay);
+		videoEl.addEventListener('pause', onPause);
+		return () => {
+			videoEl.removeEventListener('play', onPlay);
+			videoEl.removeEventListener('pause', onPause);
+		};
+	});
+
+	function togglePlay() {
+		if (isPlaying) videoEl.pause();
+		else videoEl.play().catch(() => {});
+	}
+
+	function toggleMute() {
+		isMuted = !isMuted;
+		videoEl.muted = isMuted;
+	}
+
+	function toggleFullscreen() {
+		if (!document.fullscreenElement) playerShellEl.requestFullscreen?.();
+		else document.exitFullscreen?.();
+	}
+
+	const eqBars = Array.from({ length: 14 }, () => ({
+		height: Math.random() * 1.4 + 0.8,
+		duration: Math.random() * 0.7 + 0.5,
+		delay: Math.random() * -1.5
+	}));
+</script>
+
+<svelte:head>
+	<title>{data.appName} · Live TV</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
+		rel="stylesheet"
+	/>
+</svelte:head>
+
+<div class="page-shell">
+	<header class="topbar">
+		<a href="/" class="back-link">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+			Home
+		</a>
+		<div class="topbar-divider"></div>
+		<span class="topbar-title">Live TV</span>
+		<div class="topbar-spacer"></div>
+		<button class="icon-btn" aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} onclick={toggleTheme}>
+			{#if theme === 'light'}
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>
+			{:else}
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+			{/if}
+		</button>
+	</header>
+
+	<div class="body-shell">
+		<aside class="channel-sidebar">
+			<label class="search">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+				<input type="text" placeholder="Search channels" bind:value={searchQuery} />
+			</label>
+			<span class="list-count">{shownCount} {shownCount === 1 ? 'CHANNEL' : 'CHANNELS'}</span>
+			<ul class="channel-list">
+				{#each data.channels as channel, i (channel.id)}
+					{#if matches(channel.name, searchQuery)}
+						<li class="channel-item" class:active={i === activeIndex} onclick={() => selectChannel(i)}>
+							<div class="ch-badge" style="background:linear-gradient(135deg,{channel.colorA},{channel.colorB})">{channel.badge}</div>
+							<div class="ch-info">
+								<h3>{channel.name}</h3>
+								<span class="ch-meta">CH. {String(i + 1).padStart(2, '0')}</span>
+							</div>
+							<span class="ch-live"></span>
+						</li>
+					{/if}
+				{/each}
+			</ul>
+			{#if shownCount === 0}
+				<p class="no-results">No channels match your search.</p>
+			{/if}
+		</aside>
+
+		<main class="player-main">
+			<div
+				class="player-shell"
+				class:is-playing={isPlaying}
+				bind:this={playerShellEl}
+				style={activeChannel ? `--ch-a:${activeChannel.colorA}; --ch-b:${activeChannel.colorB};` : ''}
+			>
+				<!-- svelte-ignore a11y_media_has_caption -->
+				<video bind:this={videoEl} playsinline autoplay muted></video>
+
+				<div class="player-overlay-top">
+					<span class="live-badge"><span class="dot"></span>LIVE</span>
+					<span class="ch-number-badge">CH. {String(activeIndex + 1).padStart(2, '0')}</span>
+				</div>
+
+				<button class="player-center" aria-label="Play" onclick={() => videoEl.play()}>
+					<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg>
+				</button>
+				<div class="signal-eq">
+					{#each eqBars as bar}
+						<span class="bar" style="height:{bar.height}rem; animation-duration:{bar.duration}s; animation-delay:{bar.delay}s;"></span>
+					{/each}
+				</div>
+
+				<div class="player-overlay-bottom">
+					<h2 class="now-title">{activeChannel?.name ?? ''}</h2>
+					<p class="now-cat">{activeChannel?.category ?? ''}</p>
+					<div class="controls">
+						<button class="ctrl-btn" aria-label={isPlaying ? 'Pause' : 'Play'} onclick={togglePlay}>
+							{#if isPlaying}
+								<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+							{:else}
+								<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg>
+							{/if}
+						</button>
+						<button class="ctrl-btn" aria-label={isMuted ? 'Unmute' : 'Mute'} onclick={toggleMute}>
+							{#if isMuted}
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
+							{:else}
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg>
+							{/if}
+						</button>
+						<div class="ctrl-spacer"></div>
+						<button class="ctrl-btn" aria-label="Fullscreen" onclick={toggleFullscreen}>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v4M16 3h4v4M8 21H4v-4M16 21h4v-4"/></svg>
+						</button>
+					</div>
+				</div>
+			</div>
+		</main>
+	</div>
+</div>
+
+<style>
+	.page-shell {
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.topbar {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 1rem 1.5rem;
+		border-bottom: 1px solid var(--border);
+		flex-shrink: 0;
+	}
+	.back-link {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.85rem;
+		color: var(--text-dim);
+		padding: 0.4rem 0.6rem;
+		border-radius: var(--radius-sm);
+	}
+	.back-link svg {
+		width: 1rem;
+		height: 1rem;
+	}
+	.back-link:hover {
+		color: var(--accent-ui);
+		background: var(--veil-a);
+	}
+	.topbar-divider {
+		width: 1px;
+		height: 1.2rem;
+		background: var(--border);
+	}
+	.topbar-title {
+		font-family: var(--font-display);
+		font-weight: 600;
+		font-size: 0.95rem;
+	}
+	.topbar-spacer {
+		flex: 1;
+	}
+	.icon-btn {
+		width: 2.3rem;
+		height: 2.3rem;
+		border-radius: 50%;
+		background: var(--veil-a);
+		border: 1px solid var(--border);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--text-dim);
+		cursor: pointer;
+		transition: color 0.15s ease, border-color 0.15s ease;
+	}
+	.icon-btn svg {
+		width: 1rem;
+		height: 1rem;
+	}
+	.icon-btn:hover {
+		color: var(--accent-ui);
+		border-color: var(--accent-ui);
+	}
+
+	.body-shell {
+		flex: 1;
+		display: grid;
+		grid-template-columns: 19rem 1fr;
+		min-height: 0;
+	}
+
+	.channel-sidebar {
+		border-right: 1px solid var(--border);
+		background: var(--bg-soft);
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+	.search {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		margin: 1.1rem 1.1rem 0.75rem;
+		background: var(--veil-a);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		padding: 0.6rem 0.85rem;
+		flex-shrink: 0;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+	.search:focus-within {
+		border-color: var(--accent-ui);
+		box-shadow: 0 0 0 3px var(--focus-ring);
+	}
+	.search svg {
+		width: 0.95rem;
+		height: 0.95rem;
+		color: var(--text-faint);
+		flex-shrink: 0;
+	}
+	.search input {
+		flex: 1;
+		min-width: 0;
+		background: none;
+		border: 0;
+		outline: 0;
+		color: var(--text);
+		font-size: 0.85rem;
+		font-family: inherit;
+	}
+	.search input::placeholder {
+		color: var(--text-faint);
+	}
+
+	.list-count {
+		padding: 0 1.1rem 0.6rem;
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		letter-spacing: 0.1em;
+		color: var(--text-faint);
+		flex-shrink: 0;
+	}
+
+	.channel-list {
+		list-style: none;
+		overflow-y: auto;
+		padding: 0 0.6rem 1rem;
+		flex: 1;
+		min-height: 0;
+		margin: 0;
+	}
+	.channel-item {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.6rem 0.6rem;
+		border-radius: var(--radius-sm);
+		border-left: 2px solid transparent;
+		cursor: pointer;
+		transition: background 0.15s ease, border-color 0.15s ease;
+	}
+	.channel-item:hover {
+		background: var(--veil-a);
+	}
+	.channel-item.active {
+		background: var(--veil-a);
+		border-left-color: var(--accent-ui);
+	}
+	.ch-badge {
+		width: 2.1rem;
+		height: 2.1rem;
+		border-radius: 50%;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-family: var(--font-display);
+		font-weight: 700;
+		font-size: 0.68rem;
+		color: #fff;
+	}
+	.ch-info {
+		flex: 1;
+		min-width: 0;
+	}
+	.ch-info h3 {
+		font-size: 0.82rem;
+		font-weight: 600;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		margin: 0;
+	}
+	.ch-meta {
+		font-family: var(--font-mono);
+		font-size: 0.62rem;
+		color: var(--text-faint);
+	}
+	.ch-live {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--live);
+		flex-shrink: 0;
+	}
+	.no-results {
+		padding: 1.5rem 1rem;
+		text-align: center;
+		color: var(--text-faint);
+		font-size: 0.82rem;
+	}
+
+	.player-main {
+		padding: 1.5rem;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+	.player-shell {
+		position: relative;
+		flex: 1;
+		min-height: 0;
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+		border: 1px solid var(--border);
+		background: linear-gradient(150deg, var(--ch-a, #123a34), var(--ch-b, #0b1416));
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: background 0.3s ease;
+	}
+	.player-shell video {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.player-center {
+		position: relative;
+		width: 4.5rem;
+		height: 4.5rem;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.14);
+		backdrop-filter: blur(6px);
+		border: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #fff;
+		cursor: pointer;
+		transition: transform 0.15s ease;
+	}
+	.player-center:hover {
+		transform: scale(1.06);
+	}
+	.player-center svg {
+		width: 1.7rem;
+		height: 1.7rem;
+	}
+
+	.signal-eq {
+		position: absolute;
+		display: flex;
+		align-items: flex-end;
+		gap: 4px;
+		height: 2.4rem;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.2s ease;
+	}
+	.player-shell.is-playing .signal-eq {
+		opacity: 0.5;
+	}
+	.player-shell.is-playing .player-center {
+		opacity: 0;
+		pointer-events: none;
+	}
+	.signal-eq .bar {
+		width: 4px;
+		border-radius: 2px;
+		background: #fff;
+		animation: eqPulse ease-in-out infinite;
+	}
+	@keyframes eqPulse {
+		0%,
+		100% {
+			transform: scaleY(0.25);
+		}
+		50% {
+			transform: scaleY(1);
+		}
+	}
+
+	.player-overlay-top {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1rem 1.25rem;
+		background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent);
+	}
+	.live-badge {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-family: var(--font-mono);
+		font-size: 0.68rem;
+		letter-spacing: 0.1em;
+		color: #fff;
+		background: var(--live);
+		padding: 0.3rem 0.6rem;
+		border-radius: 5px;
+	}
+	.live-badge .dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: #fff;
+	}
+	.ch-number-badge {
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		color: #fff;
+		background: rgba(0, 0, 0, 0.35);
+		padding: 0.3rem 0.6rem;
+		border-radius: 5px;
+	}
+
+	.player-overlay-bottom {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		padding: 2.5rem 1.25rem 1rem;
+		background: linear-gradient(0deg, rgba(0, 0, 0, 0.55), transparent);
+	}
+	.now-title {
+		color: #fff;
+		font-family: var(--font-display);
+		font-weight: 700;
+		font-size: 1.15rem;
+		margin: 0 0 0.15rem;
+	}
+	.now-cat {
+		color: rgba(255, 255, 255, 0.75);
+		font-size: 0.8rem;
+		margin: 0 0 0.9rem;
+	}
+	.controls {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+	}
+	.ctrl-btn {
+		width: 2.1rem;
+		height: 2.1rem;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.12);
+		border: 0;
+		color: #fff;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+	.ctrl-btn:hover {
+		background: rgba(255, 255, 255, 0.2);
+	}
+	.ctrl-btn svg {
+		width: 0.95rem;
+		height: 0.95rem;
+	}
+	.ctrl-spacer {
+		flex: 1;
+	}
+
+	@media (max-width: 880px) {
+		.body-shell {
+			grid-template-columns: 1fr;
+			grid-template-rows: auto 1fr;
+		}
+		.channel-sidebar {
+			border-right: 0;
+			border-bottom: 1px solid var(--border);
+			max-height: 14rem;
+		}
+		.player-main {
+			padding: 1rem;
+		}
+	}
+</style>

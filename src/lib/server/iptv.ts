@@ -1,6 +1,7 @@
 import { asc } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
 import { hosts } from '$lib/server/db/schema';
+import type { UserSession } from '$lib/server/session';
 
 const REQUEST_TIMEOUT_MS = 8000;
 // Some Xtream/IPTV panels reject requests whose User-Agent doesn't look like
@@ -90,4 +91,95 @@ export async function authenticate(username: string, password: string): Promise<
 	}
 
 	return null;
+}
+
+export type LiveChannel = {
+	id: number;
+	name: string;
+	category: string;
+	badge: string;
+	colorA: string;
+	colorB: string;
+};
+
+// Deterministic per-channel badge letters + gradient, since the real API
+// doesn't provide the mockup's hand-picked colors — same seeded-hash
+// approach already used for mock data in category.html/movie.html.
+const BADGE_PALETTE: [string, string][] = [
+	['#4FE3D3', '#2A8F86'],
+	['#FF8A65', '#C4531F'],
+	['#8B7CF6', '#4C3FA8'],
+	['#FFD166', '#B8860B'],
+	['#F76E9C', '#A83A63'],
+	['#5AD1E6', '#1E7A8C'],
+	['#9BE15D', '#4B8B2E'],
+	['#B0BEC5', '#546E7A']
+];
+
+function seedFromString(str: string): number {
+	let h = 0;
+	for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+	return h;
+}
+
+function badgeFor(name: string): string {
+	const words = name
+		.replace(/[^\p{L}\p{N}\s]/gu, ' ')
+		.trim()
+		.split(/\s+/)
+		.filter(Boolean);
+	if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+	if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+	return '??';
+}
+
+type XtreamCategory = { category_id: string; category_name: string };
+type XtreamLiveStream = { stream_id: number; name: string; category_id: string };
+
+export async function getLiveChannels(session: UserSession): Promise<LiveChannel[]> {
+	const base = session.hostUrl.replace(/\/+$/, '');
+	const params = new URLSearchParams({ username: session.username, password: session.password });
+	const headers = { 'User-Agent': PLAYER_USER_AGENT };
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+	try {
+		const [catRes, streamRes] = await Promise.all([
+			fetch(`${base}/player_api.php?${params.toString()}&action=get_live_categories`, {
+				headers,
+				signal: controller.signal
+			}),
+			fetch(`${base}/player_api.php?${params.toString()}&action=get_live_streams`, {
+				headers,
+				signal: controller.signal
+			})
+		]);
+
+		if (!catRes.ok || !streamRes.ok) {
+			console.error(`[iptv] live channel fetch failed: categories=${catRes.status} streams=${streamRes.status}`);
+			return [];
+		}
+
+		const categories: XtreamCategory[] = await catRes.json();
+		const streams: XtreamLiveStream[] = await streamRes.json();
+		const categoryNames = new Map(categories.map((c) => [c.category_id, c.category_name]));
+
+		return streams.map((s) => {
+			const [colorA, colorB] = BADGE_PALETTE[seedFromString(s.name) % BADGE_PALETTE.length];
+			return {
+				id: s.stream_id,
+				name: s.name,
+				category: categoryNames.get(s.category_id) ?? 'General',
+				badge: badgeFor(s.name),
+				colorA,
+				colorB
+			};
+		});
+	} catch (err) {
+		const reason = err instanceof Error ? err.message : String(err);
+		console.error(`[iptv] live channel fetch error: ${reason}`);
+		return [];
+	} finally {
+		clearTimeout(timeout);
+	}
 }
