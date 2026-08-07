@@ -1,20 +1,20 @@
 import { redirect, type Handle } from '@sveltejs/kit';
-import { migrate } from 'drizzle-orm/mysql2/migrator';
 import { ADMIN_COOKIE_NAME, verifyAdminSession } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
+import { ensureSchema } from '$lib/server/db/init';
 import { USER_SESSION_COOKIE_NAME, readUserSession } from '$lib/server/session';
 
-// Runs the DB migrations on first request rather than relying on a specific
+// Applies schema DDL on first request rather than relying on a specific
 // process entry point (e.g. start.mjs) actually being what launches the app —
 // Hostinger's Node.js app hosting can be configured to run build/index.js
-// directly, bypassing any wrapper script. Idempotent: Drizzle tracks applied
-// migrations, so this is a no-op once the schema is current.
+// directly, bypassing any wrapper script. Idempotent (CREATE TABLE IF NOT
+// EXISTS), so this is a no-op on every request after the first.
 let migrated = false;
 let migratePromise: Promise<void> | null = null;
 
 function ensureMigrated(): Promise<void> {
 	if (migrated) return Promise.resolve();
-	migratePromise ??= migrate(getDb(), { migrationsFolder: './drizzle' })
+	migratePromise ??= ensureSchema(getDb())
 		.then(() => {
 			migrated = true;
 		})
