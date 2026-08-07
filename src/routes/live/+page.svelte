@@ -15,6 +15,18 @@
 	}
 
 	let searchQuery = $state('');
+	// The input itself binds to searchQuery directly so typing always feels
+	// instant; filtering (which re-renders the whole channel list — this
+	// list can run into the hundreds/thousands for a real provider) is
+	// debounced off of it so a heavy re-render doesn't happen on every
+	// keystroke.
+	let debouncedQuery = $state('');
+	$effect(() => {
+		const q = searchQuery;
+		const timer = setTimeout(() => (debouncedQuery = q), 150);
+		return () => clearTimeout(timer);
+	});
+
 	let activeIndex = $state(0);
 	let isPlaying = $state(false);
 	let isBuffering = $state(true);
@@ -28,7 +40,7 @@
 	function matches(name: string, query: string) {
 		return !query.trim() || name.toLowerCase().includes(query.trim().toLowerCase());
 	}
-	let shownCount = $derived(data.channels.filter((c) => matches(c.name, searchQuery)).length);
+	let shownCount = $derived(data.channels.filter((c) => matches(c.name, debouncedQuery)).length);
 
 	let activeChannel = $derived(data.channels[activeIndex] as (typeof data.channels)[number] | undefined);
 
@@ -165,7 +177,7 @@
 			<span class="list-count">{shownCount} {shownCount === 1 ? 'CHANNEL' : 'CHANNELS'}</span>
 			<ul class="channel-list">
 				{#each data.channels as channel, i (channel.id)}
-					{#if matches(channel.name, searchQuery)}
+					{#if matches(channel.name, debouncedQuery)}
 						<li class="channel-item" class:active={i === activeIndex} onclick={() => selectChannel(i)}>
 							<div class="ch-badge" style="background:linear-gradient(135deg,{channel.colorA},{channel.colorB})">{channel.badge}</div>
 							<div class="ch-info">
@@ -378,6 +390,21 @@
 		flex: 1;
 		min-height: 0;
 		margin: 0;
+		scrollbar-width: thin;
+		scrollbar-color: var(--border-strong) transparent;
+	}
+	.channel-list::-webkit-scrollbar {
+		width: 8px;
+	}
+	.channel-list::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	.channel-list::-webkit-scrollbar-thumb {
+		background: var(--border-strong);
+		border-radius: 999px;
+	}
+	.channel-list::-webkit-scrollbar-thumb:hover {
+		background: var(--text-faint);
 	}
 	.channel-item {
 		display: flex;
@@ -430,7 +457,7 @@
 		width: 6px;
 		height: 6px;
 		border-radius: 50%;
-		background: var(--live);
+		background: #22c55e;
 		flex-shrink: 0;
 	}
 	.no-results {
