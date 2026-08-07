@@ -116,12 +116,6 @@
 			<button class="icon-btn" aria-label="Search">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
 			</button>
-			<button class="icon-btn" aria-label="Notifications">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>
-			</button>
-			<button class="icon-btn" aria-label="Cast to device">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v12h-7"/><path d="M3 13a8 8 0 0 1 8 8"/><path d="M3 17a4 4 0 0 1 4 4"/><circle cx="3.5" cy="20.5" r="0.9" fill="currentColor" stroke="none"/></svg>
-			</button>
 			<form method="POST" action="?/logout">
 				<button class="icon-btn" type="submit" aria-label="Log out">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
