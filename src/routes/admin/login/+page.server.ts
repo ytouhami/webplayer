@@ -1,10 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { setAdminSession, verifyAdminCredentials } from '$lib/server/auth';
+import { hasAnyAdmin, setAdminSession, verifyAdminCredentials } from '$lib/server/auth';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.isAdmin) {
 		throw redirect(303, '/admin');
+	}
+	if (!(await hasAnyAdmin())) {
+		throw redirect(303, '/admin/setup');
 	}
 };
 

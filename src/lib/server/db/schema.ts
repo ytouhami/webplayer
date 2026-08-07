@@ -15,3 +15,10 @@ export const appSettings = mysqlTable('app_settings', {
 	accentColor: varchar('accent_color', { length: 7 }).notNull().default('#4FE3D3'),
 	updatedAt: timestamp('updated_at').notNull().defaultNow().onUpdateNow()
 });
+
+export const admins = mysqlTable('admins', {
+	id: int('id').autoincrement().primaryKey(),
+	username: varchar('username', { length: 255 }).notNull().unique(),
+	passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+	createdAt: timestamp('created_at').notNull().defaultNow()
+});
