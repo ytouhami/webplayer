@@ -199,13 +199,9 @@
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l4 3 4-3"/><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="2.6"/></svg>
 				<span>LIVE TV</span>
 			</a>
-			<a href="#" class="tile tile-movies">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5Z" fill="currentColor" stroke="none"/></svg>
-				<span>MOVIES</span>
-			</a>
-			<a href="#" class="tile tile-series">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 4.5 5h15L21 9.5"/><rect x="3" y="9.5" width="18" height="10" rx="1.5"/><path d="M7 5l2 4.5M12 5l2 4.5M17 5l2 4.5"/></svg>
-				<span>SERIES</span>
+			<a href="#" class="tile tile-catchup">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 1 1 1 8"/><path d="M4 4v5h5"/><path d="M12 8v4l3 2"/></svg>
+				<span>CATCH UP</span>
 			</a>
 		</div>
 
@@ -214,15 +210,14 @@
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>
 				TV Guide
 			</a>
-			<a href="#" class="tile-sm">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="7" rx="1"/><rect x="13" y="4" width="8" height="7" rx="1"/><rect x="3" y="13" width="8" height="7" rx="1"/><rect x="13" y="13" width="8" height="7" rx="1"/></svg>
-				Multi-Screen
-			</a>
-			<a href="#" class="tile-sm">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 1 1 1 8"/><path d="M4 4v5h5"/><path d="M12 8v4l3 2"/></svg>
-				Catch Up
-			</a>
 		</div>
+
+		<form method="POST" action="?/logout" class="logout-row">
+			<button type="submit" class="logout-btn">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+				Log Out
+			</button>
+		</form>
 	</main>
 
 	<footer class="status-bar">
@@ -474,10 +469,10 @@
 
 	.primary-tiles {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(2, 1fr);
 		gap: 1.5rem;
 		width: 100%;
-		max-width: 56rem;
+		max-width: 40rem;
 	}
 	.tile {
 		position: relative;
@@ -509,19 +504,16 @@
 	.tile-live {
 		background: linear-gradient(150deg, #20d9c6, #0c6b5f);
 	}
-	.tile-movies {
+	.tile-catchup {
 		background: linear-gradient(150deg, #ff9459, #c24b23);
-	}
-	.tile-series {
-		background: linear-gradient(150deg, #9c8cfb, #4c3fa8);
 	}
 
 	.secondary-tiles {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: 1fr;
 		gap: 1.5rem;
 		width: 100%;
-		max-width: 56rem;
+		max-width: 18rem;
 	}
 	.tile-sm {
 		display: flex;
@@ -542,6 +534,33 @@
 		height: 1.2rem;
 	}
 	.tile-sm:hover {
+		border-color: var(--accent-ui);
+		color: var(--accent-ui);
+	}
+
+	.logout-row {
+		margin-top: 0.5rem;
+	}
+	.logout-btn {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.75rem 1.5rem;
+		background: none;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		color: var(--text-dim);
+		font-family: inherit;
+		font-weight: 600;
+		font-size: 0.85rem;
+		cursor: pointer;
+		transition: border-color 0.15s ease, color 0.15s ease;
+	}
+	.logout-btn svg {
+		width: 1.1rem;
+		height: 1.1rem;
+	}
+	.logout-btn:hover {
 		border-color: var(--accent-ui);
 		color: var(--accent-ui);
 	}
