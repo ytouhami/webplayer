@@ -29,6 +29,7 @@
 	/>
 </svelte:head>
 
+<div class="auth-shell">
 <button
 	class="theme-toggle"
 	aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
@@ -112,71 +113,18 @@
 
 	<p class="card-footnote">Authorized administrators only.</p>
 </form>
+</div>
 
 <style>
-	:global(:root) {
-		--bg: #0a0d12;
-		--bg-soft: #0d1117;
-		--panel-strong: rgba(17, 21, 28, 0.85);
-		--border: rgba(255, 255, 255, 0.08);
-		--border-strong: rgba(255, 255, 255, 0.16);
-		--text: #edf1f5;
-		--text-dim: #8a93a3;
-		--text-faint: #4b5563;
-		--accent: #4fe3d3;
-		--accent-dim: #2a8f86;
-		--accent-contrast: #052220;
-		--radius-lg: 20px;
-		--radius-md: 14px;
-		--radius-sm: 9px;
-		--font-display: 'Space Grotesk', sans-serif;
-		--font-body: 'Inter', sans-serif;
-		--font-mono: 'IBM Plex Mono', monospace;
-		--veil-a: rgba(255, 255, 255, 0.03);
-		--accent-ui: var(--accent);
-		--focus-ring: rgba(79, 227, 211, 0.16);
-		--glow: rgba(79, 227, 211, 0.1);
-	}
-	:global([data-theme='light']) {
-		--bg: #eaecef;
-		--bg-soft: #e2e5e9;
-		--panel-strong: rgba(255, 255, 255, 0.95);
-		--border: rgba(10, 15, 20, 0.12);
-		--border-strong: rgba(10, 15, 20, 0.22);
-		--text: #12161c;
-		--text-dim: #454e5a;
-		--text-faint: #727c89;
-		--veil-a: rgba(10, 15, 20, 0.03);
-		--accent-ui: #127a70;
-		--glow: rgba(18, 122, 112, 0.06);
-		--focus-ring: rgba(18, 122, 112, 0.18);
-	}
-
-	:global(body) {
+	.auth-shell {
 		background:
 			radial-gradient(900px 500px at 50% 20%, var(--glow), transparent 65%),
-			var(--bg);
-		color: var(--text);
-		font-family: var(--font-body);
-		-webkit-font-smoothing: antialiased;
+			transparent;
 		min-height: 100vh;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: 2rem;
-		margin: 0;
-	}
-	:global(*),
-	:global(*::before),
-	:global(*::after) {
-		box-sizing: border-box;
-	}
-	:global(a) {
-		color: inherit;
-	}
-	:global(::selection) {
-		background: var(--accent);
-		color: var(--accent-contrast);
 	}
 
 	.theme-toggle {
@@ -386,13 +334,5 @@
 		margin-top: 1.35rem;
 		font-size: 0.78rem;
 		color: var(--text-faint);
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		:global(*),
-		:global(*::before),
-		:global(*::after) {
-			transition-duration: 0.001ms !important;
-		}
 	}
 </style>

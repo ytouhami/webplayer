@@ -221,66 +221,8 @@
 </form>
 
 <style>
-	:global(:root) {
-		--bg: #0a0d12;
-		--bg-soft: #0d1117;
-		--panel-strong: rgba(17, 21, 28, 0.85);
-		--border: rgba(255, 255, 255, 0.08);
-		--border-strong: rgba(255, 255, 255, 0.16);
-		--text: #edf1f5;
-		--text-dim: #8a93a3;
-		--text-faint: #4b5563;
-		--accent: #4fe3d3;
-		--accent-dim: #2a8f86;
-		--accent-contrast: #052220;
-		--live: #ff5c5c;
-		--radius-lg: 20px;
-		--radius-md: 14px;
-		--radius-sm: 9px;
-		--font-display: 'Space Grotesk', sans-serif;
-		--font-body: 'Inter', sans-serif;
-		--font-mono: 'IBM Plex Mono', monospace;
-		--veil-a: rgba(255, 255, 255, 0.03);
-		--accent-ui: var(--accent);
-		--focus-ring: rgba(79, 227, 211, 0.16);
-	}
-	:global([data-theme='light']) {
-		--bg: #eaecef;
-		--bg-soft: #e2e5e9;
-		--panel-strong: rgba(255, 255, 255, 0.95);
-		--border: rgba(10, 15, 20, 0.12);
-		--border-strong: rgba(10, 15, 20, 0.22);
-		--text: #12161c;
-		--text-dim: #454e5a;
-		--text-faint: #727c89;
-		--veil-a: rgba(10, 15, 20, 0.03);
-		--accent-ui: #127a70;
-		--focus-ring: rgba(18, 122, 112, 0.18);
-	}
-
-	:global(body) {
-		background: var(--bg);
-		color: var(--text);
-		font-family: var(--font-body);
-		-webkit-font-smoothing: antialiased;
-		min-height: 100vh;
-		margin: 0;
-	}
-	:global(*),
-	:global(*::before),
-	:global(*::after) {
-		box-sizing: border-box;
-	}
 	:global(a) {
-		color: inherit;
 		text-decoration: none;
-	}
-	:global(button) {
-		font-family: inherit;
-	}
-	:global(::selection) {
-		background: var(--accent);
-		color: var(--accent-contrast);
 	}
 
 	.topbar {
