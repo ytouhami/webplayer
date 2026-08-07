@@ -75,7 +75,7 @@
 </script>
 
 <svelte:head>
-	<title>Pulse · Admin</title>
+	<title>{data.appName} · Admin</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link
@@ -87,7 +87,7 @@
 <header class="topbar">
 	<span class="admin-brand">
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.9-1.4-1.5-2.6-2.2.7a7.7 7.7 0 0 0-2.6-1.5L14.5 3h-3l-.5 2.7a7.7 7.7 0 0 0-2.6 1.5l-2.2-.7-1.5 2.6L6.6 10.5a7.6 7.6 0 0 0 0 3L4.7 15l1.5 2.6 2.2-.7c.75.65 1.63 1.15 2.6 1.5L11.5 21h3l.5-2.6c.97-.35 1.85-.85 2.6-1.5l2.2.7 1.5-2.6-1.9-1.4Z"/></svg>
-		Pulse Admin
+		{data.appName} Admin
 	</span>
 	<div class="topbar-spacer"></div>
 	<div class="topbar-actions">

@@ -6,6 +6,7 @@ import { env } from '$env/dynamic/private';
 import { getDb } from '$lib/server/db';
 import { appSettings, hosts } from '$lib/server/db/schema';
 import { clearAdminSession } from '$lib/server/auth';
+import { getAppSettings } from '$lib/server/settings';
 import type { Actions, PageServerLoad } from './$types';
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
@@ -18,15 +19,8 @@ const ALLOWED_LOGO_TYPES: Record<string, string> = {
 };
 
 export const load: PageServerLoad = async () => {
-	const db = getDb();
-	const hostRows = await db.select().from(hosts);
-	const settingsRows = await db.select().from(appSettings);
-	const settings = settingsRows[0] ?? {
-		id: 1,
-		appName: 'Pulse',
-		logoUrl: null,
-		accentColor: '#4FE3D3'
-	};
+	const hostRows = await getDb().select().from(hosts);
+	const settings = await getAppSettings();
 
 	return { hosts: hostRows, settings };
 };

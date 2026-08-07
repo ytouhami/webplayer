@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { ActionData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { form }: { form: ActionData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let theme = $state<'light' | 'dark'>('dark');
 	let showPassword = $state(false);
@@ -20,7 +20,7 @@
 </script>
 
 <svelte:head>
-	<title>Pulse Admin · Sign In</title>
+	<title>{data.appName} Admin · Sign In</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link
@@ -61,7 +61,7 @@
 			<rect x="35" y="20" width="7" height="28" rx="3" fill="#4FE3D3"/>
 			<rect x="46" y="12" width="7" height="36" rx="3" fill="#4FE3D3"/>
 		</svg>
-		<b>Pulse</b>
+		<b>{data.appName}</b>
 		<span>ADMIN&nbsp;PANEL</span>
 	</div>
 
