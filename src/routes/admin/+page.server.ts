@@ -1,0 +1,108 @@
+import { fail, redirect } from '@sveltejs/kit';
+import { randomBytes } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { env } from '$env/dynamic/private';
+import { getDb } from '$lib/server/db';
+import { appSettings, hosts } from '$lib/server/db/schema';
+import { clearAdminSession } from '$lib/server/auth';
+import type { Actions, PageServerLoad } from './$types';
+
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_LOGO_TYPES: Record<string, string> = {
+	'image/png': 'png',
+	'image/jpeg': 'jpg',
+	'image/webp': 'webp',
+	'image/gif': 'gif',
+	'image/svg+xml': 'svg'
+};
+
+export const load: PageServerLoad = async () => {
+	const db = getDb();
+	const hostRows = await db.select().from(hosts);
+	const settingsRows = await db.select().from(appSettings);
+	const settings = settingsRows[0] ?? {
+		id: 1,
+		appName: 'Pulse',
+		logoUrl: null,
+		accentColor: '#4FE3D3'
+	};
+
+	return { hosts: hostRows, settings };
+};
+
+export const actions: Actions = {
+	save: async ({ request }) => {
+		const data = await request.formData();
+		const appName = data.get('appName')?.toString().trim() || 'Pulse';
+		const accentColor = data.get('accentColor')?.toString().trim() || '#4FE3D3';
+		const logoAction = data.get('logoAction')?.toString() ?? 'keep';
+		const hostsRaw = data.get('hostsJson')?.toString() ?? '[]';
+
+		let parsedHosts: { name: string; url: string }[];
+		try {
+			const arr = JSON.parse(hostsRaw);
+			if (!Array.isArray(arr)) throw new Error('not an array');
+			parsedHosts = arr
+				.map((h) => ({ name: String(h.name ?? '').trim(), url: String(h.url ?? '').trim() }))
+				.filter((h) => h.name || h.url);
+		} catch {
+			return fail(400, { error: 'Malformed host list.' });
+		}
+
+		let logoUrl: string | null | undefined;
+		if (logoAction === 'remove') {
+			logoUrl = null;
+		} else if (logoAction === 'new') {
+			const file = data.get('logo');
+			if (file instanceof File && file.size > 0) {
+				if (file.size > MAX_LOGO_BYTES) {
+					return fail(400, { error: 'Logo must be smaller than 5MB.' });
+				}
+				const ext = ALLOWED_LOGO_TYPES[file.type];
+				if (!ext) {
+					return fail(400, { error: 'Logo must be a PNG, JPEG, WebP, GIF, or SVG image.' });
+				}
+
+				const uploadsDir = path.resolve(env.UPLOADS_DIR ?? './uploads');
+				await mkdir(uploadsDir, { recursive: true });
+
+				const filename = `logo-${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`;
+				const bytes = Buffer.from(await file.arrayBuffer());
+				await writeFile(path.join(uploadsDir, filename), bytes);
+
+				logoUrl = `/uploads/${filename}`;
+			}
+		}
+
+		await getDb().transaction(async (tx) => {
+			await tx.delete(hosts);
+			if (parsedHosts.length) {
+				await tx.insert(hosts).values(parsedHosts);
+			}
+
+			await tx
+				.insert(appSettings)
+				.values({
+					id: 1,
+					appName,
+					accentColor,
+					logoUrl: logoUrl ?? null
+				})
+				.onDuplicateKeyUpdate({
+					set: {
+						appName,
+						accentColor,
+						...(logoUrl !== undefined ? { logoUrl } : {})
+					}
+				});
+		});
+
+		return { success: true };
+	},
+
+	logout: async ({ cookies }) => {
+		clearAdminSession(cookies);
+		throw redirect(303, '/admin/login');
+	}
+};
