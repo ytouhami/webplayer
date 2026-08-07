@@ -221,10 +221,6 @@
 </form>
 
 <style>
-	:global(a) {
-		text-decoration: none;
-	}
-
 	.topbar {
 		display: flex;
 		align-items: center;
