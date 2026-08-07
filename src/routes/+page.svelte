@@ -100,13 +100,17 @@
 	<header class="topbar">
 		<div class="topbar-left">
 			<div class="brand">
-				<svg viewBox="0 0 64 64" fill="none">
-					<rect x="1.5" y="1.5" width="61" height="61" rx="18" fill="#0C0F14" stroke="#4FE3D3" stroke-opacity="0.35" stroke-width="1.5"/>
-					<rect x="13" y="36" width="7" height="12" rx="3" fill="#4FE3D3"/>
-					<rect x="24" y="28" width="7" height="20" rx="3" fill="#4FE3D3"/>
-					<rect x="35" y="20" width="7" height="28" rx="3" fill="#4FE3D3"/>
-					<rect x="46" y="12" width="7" height="36" rx="3" fill="#4FE3D3"/>
-				</svg>
+				{#if data.logoUrl}
+					<img src={data.logoUrl} alt="Logo" class="brand-logo" />
+				{:else}
+					<svg viewBox="0 0 64 64" fill="none">
+						<rect x="1.5" y="1.5" width="61" height="61" rx="18" fill="#0C0F14" stroke="#4FE3D3" stroke-opacity="0.35" stroke-width="1.5"/>
+						<rect x="13" y="36" width="7" height="12" rx="3" fill="#4FE3D3"/>
+						<rect x="24" y="28" width="7" height="20" rx="3" fill="#4FE3D3"/>
+						<rect x="35" y="20" width="7" height="28" rx="3" fill="#4FE3D3"/>
+						<rect x="46" y="12" width="7" height="36" rx="3" fill="#4FE3D3"/>
+					</svg>
+				{/if}
 				<span>{data.appName}</span>
 			</div>
 			<div class="clock"><b>{clockTime}</b><span>{clockDate}</span></div>
@@ -255,9 +259,14 @@
 		align-items: center;
 		gap: 0.65rem;
 	}
-	.brand svg {
+	.brand svg,
+	.brand-logo {
 		width: 2rem;
 		height: 2rem;
+	}
+	.brand-logo {
+		border-radius: 28%;
+		object-fit: cover;
 	}
 	.brand span {
 		font-family: var(--font-display);
