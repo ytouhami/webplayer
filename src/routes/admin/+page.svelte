@@ -34,6 +34,10 @@
 		theme = (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
 	});
 
+	let activeTab = $state<'settings' | 'downloader'>('settings');
+	let m3uUrl = $state('');
+	let checkingM3u = $state(false);
+
 	function toggleTheme() {
 		theme = theme === 'light' ? 'dark' : 'light';
 		document.documentElement.setAttribute('data-theme', theme);
@@ -106,6 +110,16 @@
 	</div>
 </header>
 
+<nav class="tabs">
+	<button type="button" class:active={activeTab === 'settings'} onclick={() => (activeTab = 'settings')}>
+		Settings
+	</button>
+	<button type="button" class:active={activeTab === 'downloader'} onclick={() => (activeTab = 'downloader')}>
+		M3U Downloader
+	</button>
+</nav>
+
+{#if activeTab === 'settings'}
 <form
 	method="POST"
 	action="?/save"
@@ -219,6 +233,55 @@
 		</div>
 	</div>
 </form>
+{/if}
+
+{#if activeTab === 'downloader'}
+<div class="content">
+	<div class="panel">
+		<h2 class="panel-title">M3U Downloader</h2>
+		<p class="panel-sub">Fetch a playlist from a URL and download it as a file.</p>
+
+		<form
+			method="POST"
+			action="?/checkM3u"
+			use:enhance={() => {
+				checkingM3u = true;
+				return async ({ update }) => {
+					await update();
+					checkingM3u = false;
+				};
+			}}
+		>
+			<div class="branding-field">
+				<span class="field-label">M3U URL</span>
+				<input
+					type="text"
+					class="text-input"
+					name="m3uUrl"
+					placeholder="http://provider.example.com/get.php?username=...&password=...&type=m3u_plus"
+					bind:value={m3uUrl}
+				/>
+			</div>
+
+			{#if form?.m3uError}
+				<p class="form-error">{form.m3uError}</p>
+			{/if}
+
+			<button class="save-btn" type="submit" disabled={checkingM3u}>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 12 5 5 5-5"/><path d="M4 21h16"/></svg>
+				{checkingM3u ? 'Checking…' : 'Fetch Playlist'}
+			</button>
+		</form>
+
+		{#if form?.m3uDownloadUrl}
+			<a href={form.m3uDownloadUrl} class="ghost-btn-sm m3u-download-link" download="playlist.txt">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 12 5 5 5-5"/><path d="M4 21h16"/></svg>
+				Download playlist.txt
+			</a>
+		{/if}
+	</div>
+</div>
+{/if}
 
 <style>
 	.topbar {
@@ -276,6 +339,38 @@
 		max-width: 52rem;
 		margin: 0 auto;
 		padding: 2.25rem 2.25rem 6rem;
+	}
+
+	.tabs {
+		display: flex;
+		gap: 0.5rem;
+		max-width: 52rem;
+		margin: 1.5rem auto 0;
+		padding: 0 2.25rem;
+	}
+	.tabs button {
+		padding: 0.6rem 1.1rem;
+		background: none;
+		border: 0;
+		border-bottom: 2px solid transparent;
+		color: var(--text-dim);
+		font-family: inherit;
+		font-weight: 600;
+		font-size: 0.85rem;
+		cursor: pointer;
+		transition: color 0.15s ease, border-color 0.15s ease;
+	}
+	.tabs button:hover {
+		color: var(--text);
+	}
+	.tabs button.active {
+		color: var(--accent-ui);
+		border-color: var(--accent-ui);
+	}
+
+	.m3u-download-link {
+		display: inline-flex;
+		margin-top: 1rem;
 	}
 
 	.panel {

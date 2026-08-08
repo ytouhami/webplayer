@@ -7,6 +7,7 @@ import { getDb } from '$lib/server/db';
 import { appSettings, hosts } from '$lib/server/db/schema';
 import { clearAdminSession } from '$lib/server/auth';
 import { getAppSettings } from '$lib/server/settings';
+import { parseHttpUrl, verifyM3uUrl } from '$lib/server/m3u';
 import type { Actions, PageServerLoad } from './$types';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -103,5 +104,22 @@ export const actions: Actions = {
 	logout: async ({ cookies }) => {
 		clearAdminSession(cookies);
 		throw redirect(303, '/admin/login');
+	},
+
+	checkM3u: async ({ request }) => {
+		const data = await request.formData();
+		const m3uUrl = data.get('m3uUrl')?.toString().trim() ?? '';
+
+		const parsed = parseHttpUrl(m3uUrl);
+		if (!parsed) {
+			return fail(400, { m3uError: 'Enter a valid http/https URL.' });
+		}
+
+		const ok = await verifyM3uUrl(parsed.toString());
+		if (!ok) {
+			return fail(400, { m3uError: "Couldn't fetch a valid M3U playlist from that URL." });
+		}
+
+		return { m3uDownloadUrl: `/admin/m3u-download?url=${encodeURIComponent(parsed.toString())}` };
 	}
 };
