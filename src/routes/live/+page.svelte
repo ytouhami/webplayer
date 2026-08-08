@@ -567,7 +567,7 @@
 		inset: 0;
 		width: 100%;
 		height: 100%;
-		object-fit: cover;
+		object-fit: contain;
 		/* Hints the browser to keep this on its own compositor layer so the
 		   native Fullscreen API resize doesn't force a full repaint of the
 		   decode/render pipeline — reduces (does not fully eliminate) the
