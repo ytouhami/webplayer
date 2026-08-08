@@ -1,8 +1,4 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { randomBytes } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { env } from '$env/dynamic/private';
 import { getDb } from '$lib/server/db';
 import { appSettings, hosts } from '$lib/server/db/schema';
 import { clearAdminSession } from '$lib/server/auth';
@@ -12,14 +8,17 @@ import { checkAuth, buildApiUrl } from '$lib/server/iptv';
 import type { Actions, PageServerLoad } from './$types';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-const MAX_LOGO_BYTES = 5 * 1024 * 1024;
-const ALLOWED_LOGO_TYPES: Record<string, string> = {
-	'image/png': 'png',
-	'image/jpeg': 'jpg',
-	'image/webp': 'webp',
-	'image/gif': 'gif',
-	'image/svg+xml': 'svg'
-};
+// Logo is stored as a base64 data: URL in the DB (not a file on disk — see
+// schema.ts for why), and it rides along on every single page load via the
+// root layout, so this stays small enough not to bloat every request.
+const MAX_LOGO_BYTES = 300 * 1024;
+const ALLOWED_LOGO_TYPES = new Set([
+	'image/png',
+	'image/jpeg',
+	'image/webp',
+	'image/gif',
+	'image/svg+xml'
+]);
 
 export const load: PageServerLoad = async () => {
 	const hostRows = await getDb().select().from(hosts);
@@ -58,21 +57,14 @@ export const actions: Actions = {
 			const file = data.get('logo');
 			if (file instanceof File && file.size > 0) {
 				if (file.size > MAX_LOGO_BYTES) {
-					return fail(400, { error: 'Logo must be smaller than 5MB.' });
+					return fail(400, { error: 'Logo must be smaller than 300KB.' });
 				}
-				const ext = ALLOWED_LOGO_TYPES[file.type];
-				if (!ext) {
+				if (!ALLOWED_LOGO_TYPES.has(file.type)) {
 					return fail(400, { error: 'Logo must be a PNG, JPEG, WebP, GIF, or SVG image.' });
 				}
 
-				const uploadsDir = path.resolve(env.UPLOADS_DIR ?? './uploads');
-				await mkdir(uploadsDir, { recursive: true });
-
-				const filename = `logo-${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`;
 				const bytes = Buffer.from(await file.arrayBuffer());
-				await writeFile(path.join(uploadsDir, filename), bytes);
-
-				logoUrl = `/uploads/${filename}`;
+				logoUrl = `data:${file.type};base64,${bytes.toString('base64')}`;
 			}
 		}
 

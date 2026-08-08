@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, timestamp } from 'drizzle-orm/mysql-core';
+import { mysqlTable, int, varchar, text, longtext, timestamp } from 'drizzle-orm/mysql-core';
 
 export const hosts = mysqlTable('hosts', {
 	id: int('id').autoincrement().primaryKey(),
@@ -11,7 +11,12 @@ export const hosts = mysqlTable('hosts', {
 export const appSettings = mysqlTable('app_settings', {
 	id: int('id').primaryKey(),
 	appName: varchar('app_name', { length: 24 }).notNull().default('Pulse'),
-	logoUrl: varchar('logo_url', { length: 512 }),
+	// Stores a data: URL (base64), not a file path — logos live in the DB,
+	// not on disk. Hostinger deploys into a brand-new versioned directory
+	// each time, so anything written to local disk here would be orphaned
+	// on the very next deploy (this bit us for real: uploaded logos
+	// rendered fine until the next push, then 404'd).
+	logoUrl: longtext('logo_url'),
 	accentColor: varchar('accent_color', { length: 7 }).notNull().default('#4FE3D3'),
 	updatedAt: timestamp('updated_at').notNull().defaultNow().onUpdateNow()
 });

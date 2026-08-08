@@ -15,6 +15,13 @@
       "when": 1786136718575,
       "tag": "0001_cloudy_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786200006575,
+      "tag": "0002_useful_mongoose",
+      "breakpoints": true
     }
   ]
 }

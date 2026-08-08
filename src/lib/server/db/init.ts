@@ -21,7 +21,7 @@ const STATEMENTS = [
 	`CREATE TABLE IF NOT EXISTS \`app_settings\` (
 		\`id\` int NOT NULL,
 		\`app_name\` varchar(24) NOT NULL DEFAULT 'Pulse',
-		\`logo_url\` varchar(512),
+		\`logo_url\` longtext,
 		\`accent_color\` varchar(7) NOT NULL DEFAULT '#4FE3D3',
 		\`updated_at\` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 		CONSTRAINT \`app_settings_id\` PRIMARY KEY(\`id\`)
@@ -33,7 +33,12 @@ const STATEMENTS = [
 		\`created_at\` timestamp NOT NULL DEFAULT (now()),
 		CONSTRAINT \`admins_id\` PRIMARY KEY(\`id\`),
 		CONSTRAINT \`admins_username_unique\` UNIQUE(\`username\`)
-	)`
+	)`,
+	// Widens logo_url for deployments that already created app_settings
+	// with the old varchar(512) (a file path) before logos moved to
+	// data: URLs stored directly in the DB. Safe to re-run — MODIFY COLUMN
+	// to the same type is a no-op.
+	'ALTER TABLE `app_settings` MODIFY COLUMN `logo_url` longtext'
 ];
 
 export async function ensureSchema(db: ReturnType<typeof getDb>): Promise<void> {

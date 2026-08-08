@@ -1,0 +1,1 @@
+ALTER TABLE `app_settings` MODIFY COLUMN `logo_url` longtext;
