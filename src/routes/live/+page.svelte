@@ -294,14 +294,17 @@
 <style>
 	.page-shell {
 		height: 100vh;
+		height: 100dvh;
 		display: flex;
 		flex-direction: column;
+		overflow-x: hidden;
 	}
 
 	.topbar {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 1rem;
+		gap: 0.6rem 1rem;
 		padding: 1rem 1.5rem;
 		border-bottom: 1px solid var(--border);
 		flex-shrink: 0;
@@ -745,17 +748,32 @@
 	}
 
 	@media (max-width: 880px) {
+		.topbar {
+			padding: 0.85rem 1rem;
+			gap: 0.5rem 0.6rem;
+		}
+		.expiry {
+			display: none;
+		}
+		.topbar-action {
+			padding: 0.45rem 0.7rem;
+			font-size: 0.75rem;
+		}
+
 		.body-shell {
 			grid-template-columns: 1fr;
 			grid-template-rows: auto 1fr;
+			min-height: 0;
 		}
 		.channel-sidebar {
 			border-right: 0;
 			border-bottom: 1px solid var(--border);
-			max-height: 14rem;
+			height: 50vh;
+			height: 50dvh;
 		}
 		.player-main {
 			padding: 1rem;
+			min-height: 0;
 		}
 	}
 </style>

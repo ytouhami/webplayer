@@ -125,10 +125,18 @@
 			radial-gradient(900px 500px at 50% 20%, var(--glow), transparent 65%),
 			transparent;
 		min-height: 100vh;
+		min-height: 100dvh;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: 2rem;
+	}
+
+	@media (max-width: 480px) {
+		.auth-shell {
+			align-items: flex-start;
+			padding: 2.5rem 1.25rem;
+		}
 	}
 
 	.theme-toggle {
