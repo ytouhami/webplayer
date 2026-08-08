@@ -159,11 +159,13 @@
 		<span class="expiry">Subscription: <b>{data.expiryLabel}</b></span>
 		<div class="topbar-spacer"></div>
 
-		<a href="#" class="icon-btn" aria-label="Catch Up">
+		<a href="#" class="topbar-action action-catchup" title="Catch Up">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 1 1 1 8"/><path d="M4 4v5h5"/><path d="M12 8v4l3 2"/></svg>
+			Catch Up
 		</a>
-		<a href="#" class="icon-btn" aria-label="TV Guide">
+		<a href="#" class="topbar-action action-guide" title="TV Guide">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>
+			TV Guide
 		</a>
 		<form
 			method="POST"
@@ -176,16 +178,22 @@
 				};
 			}}
 		>
-			<button class="icon-btn" class:is-refreshing={refreshing} disabled={refreshing} type="submit" aria-label="Refresh playlist">
+			<button class="topbar-action action-refresh" class:is-refreshing={refreshing} disabled={refreshing} type="submit" title="Refresh playlist">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8 8 0 1 0 18.5 16"/><path d="M20 5v6h-6"/></svg>
+				Refresh
 			</button>
 		</form>
 		<form method="POST" action="?/logout">
-			<button class="icon-btn" type="submit" aria-label="Log out">
+			<button class="icon-btn" type="submit" title="Log out" aria-label="Log out">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
 			</button>
 		</form>
-		<button class="icon-btn" aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} onclick={toggleTheme}>
+		<button
+			class="icon-btn"
+			title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+			aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+			onclick={toggleTheme}
+		>
 			{#if theme === 'light'}
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>
 			{:else}
@@ -341,7 +349,46 @@
 		cursor: progress;
 		opacity: 0.7;
 	}
-	.icon-btn.is-refreshing svg {
+
+	.topbar-action {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.5rem 0.9rem;
+		border-radius: 999px;
+		border: 1px solid transparent;
+		background: color-mix(in srgb, var(--action-color) 12%, transparent);
+		border-color: color-mix(in srgb, var(--action-color) 30%, transparent);
+		color: var(--action-color);
+		font-family: inherit;
+		font-weight: 600;
+		font-size: 0.8rem;
+		cursor: pointer;
+		transition: background 0.15s ease, border-color 0.15s ease;
+	}
+	.topbar-action svg {
+		width: 1rem;
+		height: 1rem;
+		flex-shrink: 0;
+	}
+	.topbar-action:hover {
+		background: color-mix(in srgb, var(--action-color) 20%, transparent);
+		border-color: var(--action-color);
+	}
+	.topbar-action:disabled {
+		cursor: progress;
+		opacity: 0.7;
+	}
+	.action-catchup {
+		--action-color: #ff9459;
+	}
+	.action-guide {
+		--action-color: #9c8cfb;
+	}
+	.action-refresh {
+		--action-color: #5ad1e6;
+	}
+	.action-refresh.is-refreshing svg {
 		animation: iconRefreshSpin 0.9s linear infinite;
 	}
 	@keyframes iconRefreshSpin {
