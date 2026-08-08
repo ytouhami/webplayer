@@ -1,8 +1,11 @@
 <script lang="ts">
 	import Hls from 'hls.js';
+	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	let refreshing = $state(false);
 
 	let theme = $state<'light' | 'dark'>('dark');
 	$effect(() => {
@@ -152,13 +155,36 @@
 
 <div class="page-shell">
 	<header class="topbar">
-		<a href="/" class="back-link">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-			Home
-		</a>
-		<div class="topbar-divider"></div>
 		<span class="topbar-title">Live TV</span>
+		<span class="expiry">Subscription: <b>{data.expiryLabel}</b></span>
 		<div class="topbar-spacer"></div>
+
+		<a href="#" class="icon-btn" aria-label="Catch Up">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 1 1 1 8"/><path d="M4 4v5h5"/><path d="M12 8v4l3 2"/></svg>
+		</a>
+		<a href="#" class="icon-btn" aria-label="TV Guide">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>
+		</a>
+		<form
+			method="POST"
+			action="?/refresh"
+			use:enhance={() => {
+				refreshing = true;
+				return async ({ update }) => {
+					await update();
+					refreshing = false;
+				};
+			}}
+		>
+			<button class="icon-btn" class:is-refreshing={refreshing} disabled={refreshing} type="submit" aria-label="Refresh playlist">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8 8 0 1 0 18.5 16"/><path d="M20 5v6h-6"/></svg>
+			</button>
+		</form>
+		<form method="POST" action="?/logout">
+			<button class="icon-btn" type="submit" aria-label="Log out">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+			</button>
+		</form>
 		<button class="icon-btn" aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} onclick={toggleTheme}>
 			{#if theme === 'light'}
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>
@@ -272,32 +298,20 @@
 		border-bottom: 1px solid var(--border);
 		flex-shrink: 0;
 	}
-	.back-link {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		font-size: 0.85rem;
-		color: var(--text-dim);
-		padding: 0.4rem 0.6rem;
-		border-radius: var(--radius-sm);
-	}
-	.back-link svg {
-		width: 1rem;
-		height: 1rem;
-	}
-	.back-link:hover {
-		color: var(--accent-ui);
-		background: var(--veil-a);
-	}
-	.topbar-divider {
-		width: 1px;
-		height: 1.2rem;
-		background: var(--border);
-	}
 	.topbar-title {
 		font-family: var(--font-display);
 		font-weight: 600;
 		font-size: 0.95rem;
+	}
+	.expiry {
+		font-family: var(--font-mono);
+		font-size: 0.72rem;
+		color: var(--text-faint);
+		padding-left: 1.25rem;
+		border-left: 1px solid var(--border);
+	}
+	.expiry b {
+		color: var(--text-dim);
 	}
 	.topbar-spacer {
 		flex: 1;
@@ -322,6 +336,18 @@
 	.icon-btn:hover {
 		color: var(--accent-ui);
 		border-color: var(--accent-ui);
+	}
+	.icon-btn:disabled {
+		cursor: progress;
+		opacity: 0.7;
+	}
+	.icon-btn.is-refreshing svg {
+		animation: iconRefreshSpin 0.9s linear infinite;
+	}
+	@keyframes iconRefreshSpin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	.body-shell {

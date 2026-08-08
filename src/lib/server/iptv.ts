@@ -164,7 +164,26 @@ function badgeFor(name: string): string {
 type XtreamCategory = { category_id: string; category_name: string };
 type XtreamLiveStream = { stream_id: number; name: string; category_id: string };
 
-export async function getLiveChannels(session: UserSession): Promise<LiveChannel[]> {
+// In-memory cache, keyed per host+account. The channel list is expensive to
+// fetch (two full-catalog API calls against the provider) and doesn't
+// change often, so page loads reuse it — only the explicit "Refresh
+// Playlist" action re-fetches. A failed fetch never overwrites a good
+// cache entry (returns the stale list instead), so a transient provider
+// hiccup doesn't wipe out a working channel list.
+const channelsCache = new Map<string, LiveChannel[]>();
+
+function cacheKey(session: UserSession): string {
+	return `${session.hostUrl}::${session.username}`;
+}
+
+export async function getLiveChannels(
+	session: UserSession,
+	opts: { forceRefresh?: boolean } = {}
+): Promise<LiveChannel[]> {
+	const key = cacheKey(session);
+	const cached = channelsCache.get(key);
+	if (cached && !opts.forceRefresh) return cached;
+
 	const base = session.hostUrl.replace(/\/+$/, '');
 	const params = new URLSearchParams({ username: session.username, password: session.password });
 	const headers = { 'User-Agent': PLAYER_USER_AGENT };
@@ -185,14 +204,14 @@ export async function getLiveChannels(session: UserSession): Promise<LiveChannel
 
 		if (!catRes.ok || !streamRes.ok) {
 			console.error(`[iptv] live channel fetch failed: categories=${catRes.status} streams=${streamRes.status}`);
-			return [];
+			return cached ?? [];
 		}
 
 		const categories: XtreamCategory[] = await catRes.json();
 		const streams: XtreamLiveStream[] = await streamRes.json();
 		const categoryNames = new Map(categories.map((c) => [c.category_id, c.category_name]));
 
-		return streams.map((s) => {
+		const channels = streams.map((s) => {
 			const [colorA, colorB] = BADGE_PALETTE[seedFromString(s.name) % BADGE_PALETTE.length];
 			return {
 				id: s.stream_id,
@@ -203,10 +222,13 @@ export async function getLiveChannels(session: UserSession): Promise<LiveChannel
 				colorB
 			};
 		});
+
+		channelsCache.set(key, channels);
+		return channels;
 	} catch (err) {
 		const reason = err instanceof Error ? err.message : String(err);
 		console.error(`[iptv] live channel fetch error: ${reason}`);
-		return [];
+		return cached ?? [];
 	} finally {
 		clearTimeout(timeout);
 	}

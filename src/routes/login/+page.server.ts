@@ -5,7 +5,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.userSession) {
-		throw redirect(303, '/');
+		throw redirect(303, '/live');
 	}
 };
 
@@ -25,6 +25,6 @@ export const actions: Actions = {
 		}
 
 		setUserSession(cookies, { username, password, hostUrl: result.hostUrl });
-		throw redirect(303, '/');
+		throw redirect(303, '/live');
 	}
 };
