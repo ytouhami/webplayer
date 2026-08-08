@@ -7,7 +7,8 @@ import { getDb } from '$lib/server/db';
 import { appSettings, hosts } from '$lib/server/db/schema';
 import { clearAdminSession } from '$lib/server/auth';
 import { getAppSettings } from '$lib/server/settings';
-import { parseHttpUrl, verifyM3uUrl } from '$lib/server/m3u';
+import { parseHttpUrl, parseXtreamGetPhpUrl, verifyM3uUrl } from '$lib/server/m3u';
+import { checkAuth, buildApiUrl } from '$lib/server/iptv';
 import type { Actions, PageServerLoad } from './$types';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -115,11 +116,22 @@ export const actions: Actions = {
 			return fail(400, { m3uError: 'Enter a valid http/https URL.' });
 		}
 
-		const ok = await verifyM3uUrl(parsed.toString());
-		if (!ok) {
-			return fail(400, { m3uError: "Couldn't fetch a valid M3U playlist from that URL." });
+		if (await verifyM3uUrl(parsed.toString())) {
+			return { m3uDownloadUrl: `/admin/m3u-download?url=${encodeURIComponent(parsed.toString())}` };
 		}
 
-		return { m3uDownloadUrl: `/admin/m3u-download?url=${encodeURIComponent(parsed.toString())}` };
+		// Some providers block get.php specifically (anti-leech) while their
+		// API stays open — fall back to the same player_api.php method /live
+		// uses to list channels, and synthesize the playlist from that.
+		const xtream = parseXtreamGetPhpUrl(parsed);
+		if (xtream) {
+			const authOk = await checkAuth(buildApiUrl(xtream.host, xtream.username, xtream.password));
+			if (authOk) {
+				const params = new URLSearchParams(xtream);
+				return { m3uDownloadUrl: `/admin/m3u-download?${params.toString()}` };
+			}
+		}
+
+		return fail(400, { m3uError: "Couldn't fetch a valid M3U playlist from that URL." });
 	}
 };

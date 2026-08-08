@@ -233,3 +233,21 @@ export async function getLiveChannels(
 		clearTimeout(timeout);
 	}
 }
+
+// Synthesizes a standard M3U playlist from the same channel list /live
+// renders, for providers whose get.php export is blocked (anti-leech) even
+// though player_api.php works fine for the same account.
+export function buildM3uPlaylist(session: UserSession, channels: LiveChannel[]): string {
+	const base = session.hostUrl.replace(/\/+$/, '');
+	const lines = ['#EXTM3U'];
+
+	for (const ch of channels) {
+		const category = ch.category.replace(/"/g, "'");
+		const name = ch.name.replace(/[\r\n]/g, ' ');
+		const streamUrl = `${base}/live/${encodeURIComponent(session.username)}/${encodeURIComponent(session.password)}/${ch.id}.ts`;
+		lines.push(`#EXTINF:-1 group-title="${category}",${name}`);
+		lines.push(streamUrl);
+	}
+
+	return lines.join('\n');
+}

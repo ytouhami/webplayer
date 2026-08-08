@@ -40,4 +40,17 @@ export async function verifyM3uUrl(url: string): Promise<boolean> {
 	}
 }
 
+// Extracts {host, username, password} from a standard Xtream get.php URL
+// (http://host/get.php?username=...&password=...), so a blocked get.php can
+// fall back to fetching the same data via player_api.php instead.
+export function parseXtreamGetPhpUrl(url: URL): { host: string; username: string; password: string } | null {
+	if (!url.pathname.replace(/\/+$/, '').endsWith('/get.php')) return null;
+
+	const username = url.searchParams.get('username');
+	const password = url.searchParams.get('password');
+	if (!username || !password) return null;
+
+	return { host: `${url.protocol}//${url.host}`, username, password };
+}
+
 export { PLAYER_USER_AGENT };
