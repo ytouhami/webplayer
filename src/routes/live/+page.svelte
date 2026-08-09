@@ -313,6 +313,7 @@
 	.page-shell {
 		height: 100vh;
 		height: 100dvh;
+		width: 100%;
 		display: flex;
 		flex-direction: column;
 		overflow-x: hidden;
@@ -326,6 +327,7 @@
 		padding: 1rem 1.5rem;
 		border-bottom: 1px solid var(--border);
 		flex-shrink: 0;
+		min-width: 0;
 	}
 	.topbar-title {
 		font-family: var(--font-display);
@@ -423,6 +425,7 @@
 		display: grid;
 		grid-template-columns: 19rem 1fr;
 		min-height: 0;
+		min-width: 0;
 	}
 
 	.channel-sidebar {
@@ -431,6 +434,7 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
+		min-width: 0;
 	}
 	.search {
 		display: flex;
@@ -571,11 +575,13 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
+		min-width: 0;
 	}
 	.player-shell {
 		position: relative;
 		flex: 1;
 		min-height: 0;
+		min-width: 0;
 		border-radius: var(--radius-lg);
 		overflow: hidden;
 		border: 1px solid var(--border);
