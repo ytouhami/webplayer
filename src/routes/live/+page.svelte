@@ -30,6 +30,14 @@
 		return () => clearTimeout(timer);
 	});
 
+	// Channel logos come from the provider and are frequently broken/dead
+	// links — falls back to the generated badge per-channel rather than
+	// showing a broken-image icon.
+	let brokenIcons = $state(new Set<number>());
+	function handleIconError(id: number) {
+		brokenIcons = new Set(brokenIcons).add(id);
+	}
+
 	let activeIndex = $state(0);
 	let isPlaying = $state(false);
 	let isBuffering = $state(true);
@@ -213,7 +221,17 @@
 				{#each data.channels as channel, i (channel.id)}
 					{#if matches(channel.name, debouncedQuery)}
 						<li class="channel-item" class:active={i === activeIndex} onclick={() => selectChannel(i)}>
-							<div class="ch-badge" style="background:linear-gradient(135deg,{channel.colorA},{channel.colorB})">{channel.badge}</div>
+							{#if channel.icon && !brokenIcons.has(channel.id)}
+								<img
+									class="ch-badge ch-icon"
+									src={channel.icon}
+									alt=""
+									loading="lazy"
+									onerror={() => handleIconError(channel.id)}
+								/>
+							{:else}
+								<div class="ch-badge" style="background:linear-gradient(135deg,{channel.colorA},{channel.colorB})">{channel.badge}</div>
+							{/if}
 							<div class="ch-info">
 								<h3>{channel.name}</h3>
 								<span class="ch-meta">CH. {String(i + 1).padStart(2, '0')}</span>
@@ -512,6 +530,11 @@
 		font-size: 0.68rem;
 		color: #fff;
 	}
+	.ch-icon {
+		object-fit: cover;
+		background: var(--veil-a);
+		border: 1px solid var(--border);
+	}
 	.ch-info {
 		flex: 1;
 		min-width: 0;
@@ -762,18 +785,21 @@
 
 		.body-shell {
 			grid-template-columns: 1fr;
-			grid-template-rows: auto 1fr;
+			grid-template-rows: 1fr 50vh;
+			grid-template-rows: 1fr 50dvh;
+			min-height: 0;
+		}
+		.player-main {
+			grid-row: 1;
+			padding: 1rem;
 			min-height: 0;
 		}
 		.channel-sidebar {
+			grid-row: 2;
 			border-right: 0;
-			border-bottom: 1px solid var(--border);
-			height: 50vh;
-			height: 50dvh;
-		}
-		.player-main {
-			padding: 1rem;
-			min-height: 0;
+			border-top: 1px solid var(--border);
+			border-bottom: 0;
+			height: auto;
 		}
 	}
 </style>

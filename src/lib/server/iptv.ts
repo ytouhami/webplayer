@@ -128,6 +128,7 @@ export type LiveChannel = {
 	badge: string;
 	colorA: string;
 	colorB: string;
+	icon: string | null;
 };
 
 // Deterministic per-channel badge letters + gradient, since the real API
@@ -162,7 +163,12 @@ function badgeFor(name: string): string {
 }
 
 type XtreamCategory = { category_id: string; category_name: string };
-type XtreamLiveStream = { stream_id: number; name: string; category_id: string };
+type XtreamLiveStream = {
+	stream_id: number;
+	name: string;
+	category_id: string;
+	stream_icon?: string;
+};
 
 // In-memory cache, keyed per host+account. The channel list is expensive to
 // fetch (two full-catalog API calls against the provider) and doesn't
@@ -219,7 +225,8 @@ export async function getLiveChannels(
 				category: categoryNames.get(s.category_id) ?? 'General',
 				badge: badgeFor(s.name),
 				colorA,
-				colorB
+				colorB,
+				icon: s.stream_icon?.trim() || null
 			};
 		});
 
