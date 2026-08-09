@@ -574,16 +574,22 @@
 		padding: 1.5rem;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
 		justify-content: center;
 		min-height: 0;
 		min-width: 0;
+		/* Player width on desktop = viewport minus the 19rem sidebar minus
+		   this element's own 3rem of horizontal padding (box-sizing:
+		   border-box, so padding is inside the width already). Deriving
+		   height straight from that via 16:9 and reserving it as min-height
+		   guarantees the container is always tall enough for the player it's
+		   about to contain — no dependence on the aspect-ratio/flex auto-
+		   sizing algorithm correctly resolving percentage heights. */
+		min-height: calc((100vw - 19rem - 3rem) * 9 / 16 + 3rem);
 	}
 	.player-shell {
 		position: relative;
+		width: 100%;
 		aspect-ratio: 16 / 9;
-		max-width: 100%;
-		max-height: 100%;
 		min-width: 0;
 		border-radius: var(--radius-lg);
 		overflow: hidden;
@@ -801,7 +807,10 @@
 		.player-main {
 			grid-row: 1;
 			padding: 1rem;
-			min-height: 0;
+			/* No sidebar beside it on mobile (stacked layout) — available
+			   width is just the viewport minus this element's own 1rem+1rem
+			   padding. */
+			min-height: calc((100vw - 2rem) * 9 / 16 + 2rem);
 		}
 		.channel-sidebar {
 			grid-row: 2;
