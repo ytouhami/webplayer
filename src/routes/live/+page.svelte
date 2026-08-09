@@ -574,16 +574,16 @@
 		padding: 1.5rem;
 		display: flex;
 		flex-direction: column;
+		align-items: center;
 		justify-content: center;
 		min-height: 0;
 		min-width: 0;
-		overflow-y: auto;
 	}
 	.player-shell {
 		position: relative;
-		width: 100%;
 		aspect-ratio: 16 / 9;
-		flex-shrink: 0;
+		max-width: 100%;
+		max-height: 100%;
 		min-width: 0;
 		border-radius: var(--radius-lg);
 		overflow: hidden;
