@@ -171,7 +171,7 @@
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 1 1 1 8"/><path d="M4 4v5h5"/><path d="M12 8v4l3 2"/></svg>
 			Catch Up
 		</a>
-		<a href="#" class="topbar-action action-guide" title="TV Guide">
+		<a href="/epg" class="topbar-action action-guide" title="TV Guide">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>
 			TV Guide
 		</a>

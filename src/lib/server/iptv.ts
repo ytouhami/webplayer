@@ -241,6 +241,79 @@ export async function getLiveChannels(
 	}
 }
 
+export type EpgEntry = {
+	title: string;
+	description: string;
+	startLabel: string;
+	endLabel: string;
+};
+
+type XtreamEpgListing = {
+	title?: string;
+	description?: string;
+	start?: string;
+	end?: string;
+	start_timestamp?: string;
+	stop_timestamp?: string;
+};
+
+function decodeEpgText(value: string | undefined): string {
+	if (!value) return '';
+	try {
+		return Buffer.from(value, 'base64').toString('utf8');
+	} catch {
+		return value;
+	}
+}
+
+function formatEpgTime(timestamp: string | undefined, fallback: string | undefined): string {
+	const ts = timestamp ? Number(timestamp) : NaN;
+	const date = !Number.isNaN(ts) && ts > 0 ? new Date(ts * 1000) : fallback ? new Date(fallback.replace(' ', 'T')) : null;
+	if (!date || Number.isNaN(date.getTime())) return '';
+	return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// Xtream's EPG data is per-channel, keyed off epg_channel_id — many
+// providers/accounts leave this unmapped for some or all channels, in which
+// case get_short_epg legitimately returns an empty list rather than an
+// error. That's a normal "no programming data" outcome, not a failure.
+export async function getChannelEpg(session: UserSession, streamId: number): Promise<EpgEntry[]> {
+	const base = session.hostUrl.replace(/\/+$/, '');
+	const params = new URLSearchParams({
+		username: session.username,
+		password: session.password,
+		action: 'get_short_epg',
+		stream_id: String(streamId)
+	});
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+	try {
+		const response = await fetch(`${base}/player_api.php?${params.toString()}`, {
+			signal: controller.signal,
+			headers: { 'User-Agent': PLAYER_USER_AGENT }
+		});
+		if (!response.ok) return [];
+
+		const data = await response.json();
+		const listings: XtreamEpgListing[] = Array.isArray(data?.epg_listings) ? data.epg_listings : [];
+
+		return listings
+			.map((l) => ({
+				title: decodeEpgText(l.title) || 'Untitled',
+				description: decodeEpgText(l.description),
+				startLabel: formatEpgTime(l.start_timestamp, l.start),
+				endLabel: formatEpgTime(l.stop_timestamp, l.end)
+			}))
+			.filter((entry) => entry.title || entry.startLabel);
+	} catch (err) {
+		console.error(`[iptv] EPG fetch error for stream ${streamId}: ${err instanceof Error ? err.message : err}`);
+		return [];
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
 // Synthesizes a standard M3U playlist from the same channel list /live
 // renders, for providers whose get.php export is blocked (anti-leech) even
 // though player_api.php works fine for the same account.
