@@ -13,6 +13,81 @@ function redactCreds(target: string, session: UserSession): string {
 	return out;
 }
 
+const TS_PACKET_SIZE = 188;
+const TS_SYNC_BYTE = 0x47;
+const SYNC_PEEK_BYTES = 8192;
+const MIN_ALIGNED_PACKETS = 8;
+
+// Some provider edge servers prepend a few dozen/hundred bytes of junk
+// before the actual MPEG-TS packet stream starts (observed directly via
+// curl against the real provider — a real, complete, correctly-aligned TS
+// stream begins at a non-zero, per-segment-variable offset). hls.js's
+// demuxer expects byte 0 of the response to be a valid sync byte and
+// doesn't scan forward to resync, so that leading junk alone is enough to
+// make an otherwise-perfectly-good segment fail to parse. Scanning for the
+// offset with a long run of correctly-spaced sync bytes and trimming
+// everything before it fixes this without needing to know why the
+// provider sends it.
+function findTsSyncOffset(buf: Uint8Array): number {
+	const maxOffset = Math.min(TS_PACKET_SIZE, buf.length);
+	for (let offset = 0; offset < maxOffset; offset++) {
+		let packets = 0;
+		for (let i = offset; i < buf.length && buf[i] === TS_SYNC_BYTE; i += TS_PACKET_SIZE) {
+			packets++;
+			if (packets >= MIN_ALIGNED_PACKETS) return offset;
+		}
+	}
+	return 0;
+}
+
+async function stripLeadingGarbage(body: ReadableStream<Uint8Array>): Promise<ReadableStream<Uint8Array>> {
+	const reader = body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	let upstreamDone = false;
+
+	while (total < SYNC_PEEK_BYTES) {
+		const { done, value } = await reader.read();
+		if (done) {
+			upstreamDone = true;
+			break;
+		}
+		chunks.push(value);
+		total += value.length;
+	}
+
+	const head = new Uint8Array(total);
+	let pos = 0;
+	for (const chunk of chunks) {
+		head.set(chunk, pos);
+		pos += chunk.length;
+	}
+
+	const offset = findTsSyncOffset(head);
+	const trimmedHead = offset > 0 ? head.subarray(offset) : head;
+	if (offset > 0) {
+		console.log(`[stream] trimmed ${offset} leading non-sync byte(s) from segment`);
+	}
+
+	return new ReadableStream<Uint8Array>({
+		start(controller) {
+			if (trimmedHead.length > 0) controller.enqueue(trimmedHead);
+			if (upstreamDone) controller.close();
+		},
+		async pull(controller) {
+			const { done, value } = await reader.read();
+			if (done) {
+				controller.close();
+				return;
+			}
+			controller.enqueue(value);
+		},
+		cancel(reason) {
+			reader.cancel(reason);
+		}
+	});
+}
+
 export const GET: RequestHandler = async ({ url, locals }) => {
 	const session = locals.userSession;
 	if (!session) throw error(401, 'Not authenticated');
@@ -44,7 +119,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			throw error(response.status >= 400 && response.status <= 599 ? response.status : 502, `Provider returned HTTP ${response.status}`);
 		}
 
-		return new Response(response.body, {
+		const body = await stripLeadingGarbage(response.body);
+
+		return new Response(body, {
 			headers: {
 				'content-type': response.headers.get('content-type') ?? 'video/mp2t',
 				'cache-control': 'no-store'
