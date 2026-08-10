@@ -125,8 +125,23 @@
 			stallTimer = setTimeout(() => {
 				if (fragsLoaded === 0) {
 					hlsStatus = `Stalled: manifest parsed but no fragment has loaded after 8s (fragment errors so far: ${fragErrors})`;
+					logDebug('watchdog: no fragment loaded after 8s');
 				}
 			}, 8000);
+		}
+
+		// hls.js's own manifest-load timeout/retry doesn't always fire a
+		// visible event for every stall mode (e.g. the underlying browser
+		// fetch never resolving at all) — this is a hard backstop so
+		// "stuck on Loading manifest… forever with zero events" can never
+		// happen silently again.
+		let manifestWatchdog: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+			logDebug('watchdog: manifest never parsed after 15s — request likely hung');
+			playerError = 'Timed out waiting for the stream manifest (no response after 15s). Check server logs for this request.';
+		}, 15000);
+		function clearManifestWatchdog() {
+			clearTimeout(manifestWatchdog);
+			manifestWatchdog = undefined;
 		}
 
 		if (Hls.isSupported()) {
@@ -138,6 +153,7 @@
 				logDebug('manifest loading');
 			});
 			hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
+				clearManifestWatchdog();
 				const fragCount = data.levels?.[0]?.details?.fragments?.length;
 				hlsStatus = `Manifest parsed — ${fragCount ?? '?'} fragment(s) listed`;
 				logDebug(`manifest parsed: ${fragCount ?? '?'} fragments`);
@@ -164,6 +180,9 @@
 			});
 			hls.on(Hls.Events.ERROR, (_event, data) => {
 				console.error('[catchup] hls.js error', data);
+				if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR || data.details === Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT) {
+					clearManifestWatchdog();
+				}
 				if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR || data.details === Hls.ErrorDetails.FRAG_LOAD_TIMEOUT) {
 					fragErrors++;
 					armStallWatchdog();
@@ -180,6 +199,7 @@
 			hls.loadSource(src);
 			hls.attachMedia(videoEl);
 		} else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+			clearManifestWatchdog();
 			logDebug('using native HLS (hls.js not supported)');
 			videoEl.src = src;
 			videoEl.addEventListener('error', () => {
@@ -189,12 +209,14 @@
 			});
 			videoEl.play().catch((e) => logDebug(`play() rejected: ${e}`));
 		} else {
+			clearManifestWatchdog();
 			playerError = 'HLS playback is not supported in this browser.';
 			logDebug('no HLS support at all');
 		}
 
 		return () => {
 			clearTimeout(stallTimer);
+			clearManifestWatchdog();
 			if (hls) {
 				hls.destroy();
 				hls = undefined;
