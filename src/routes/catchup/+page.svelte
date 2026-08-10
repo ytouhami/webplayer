@@ -173,7 +173,15 @@
 				levelLoadingMaxRetryTimeout: 4000,
 				fragLoadingMaxRetry: 1,
 				fragLoadingRetryDelay: 500,
-				fragLoadingMaxRetryTimeout: 4000
+				fragLoadingMaxRetryTimeout: 4000,
+				// hls.js defaults to buffering an entire fragment before
+				// demuxing/playing any of it. These segments run 50MB+ for 60
+				// seconds of high-bitrate content, so that means waiting for
+				// the whole multi-second transfer before the first frame shows
+				// up. Progressive mode demuxes and appends data as it streams
+				// in instead, so playback can start as soon as enough of the
+				// first fragment has arrived rather than all of it.
+				progressive: true
 			});
 			hls.on(Hls.Events.MEDIA_ATTACHING, () => logDebug('media attaching'));
 			hls.on(Hls.Events.MEDIA_ATTACHED, () => logDebug('media attached'));
