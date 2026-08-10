@@ -154,7 +154,27 @@
 		const MAX_NETWORK_RETRIES = 3;
 
 		if (Hls.isSupported()) {
-			hls = new Hls({ debug: false });
+			// The provider's catch-up backend fails hard for this account
+			// (confirmed via direct testing), so there's no point letting
+			// hls.js's defaults retry a broken fragment/manifest for up to a
+			// minute-plus of exponential backoff before we ever see a fatal
+			// error — that just means many slow, overlapping requests sitting
+			// in our own segment proxy for a long time, which is what was
+			// making the rest of the page (including the channel list) feel
+			// unresponsive. Fail fast instead; our own ERROR handler already
+			// caps total attempts and shows a clear message.
+			hls = new Hls({
+				debug: false,
+				manifestLoadingMaxRetry: 1,
+				manifestLoadingRetryDelay: 500,
+				manifestLoadingMaxRetryTimeout: 4000,
+				levelLoadingMaxRetry: 1,
+				levelLoadingRetryDelay: 500,
+				levelLoadingMaxRetryTimeout: 4000,
+				fragLoadingMaxRetry: 1,
+				fragLoadingRetryDelay: 500,
+				fragLoadingMaxRetryTimeout: 4000
+			});
 			hls.on(Hls.Events.MEDIA_ATTACHING, () => logDebug('media attaching'));
 			hls.on(Hls.Events.MEDIA_ATTACHED, () => logDebug('media attached'));
 			hls.on(Hls.Events.MANIFEST_LOADING, () => {
