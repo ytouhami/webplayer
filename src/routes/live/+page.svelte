@@ -120,6 +120,16 @@
 		else videoEl.play().catch(() => {});
 	}
 
+	// Clicking anywhere on the player toggles play/pause — except clicks
+	// that land on an actual control (buttons, the volume slider), which
+	// already have their own specific action and shouldn't also trigger
+	// this.
+	function handlePlayerClick(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		if (target.closest('button, input, a')) return;
+		togglePlay();
+	}
+
 	function toggleMute() {
 		isMuted = !isMuted;
 		videoEl.muted = isMuted;
@@ -374,6 +384,7 @@
 				style={activeChannel ? `--ch-a:${activeChannel.colorA}; --ch-b:${activeChannel.colorB};` : ''}
 				onpointermove={showControls}
 				onpointerdown={showControls}
+				onclick={handlePlayerClick}
 			>
 				<!-- svelte-ignore a11y_media_has_caption -->
 				<video bind:this={videoEl} playsinline autoplay muted></video>
