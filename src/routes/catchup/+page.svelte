@@ -79,9 +79,29 @@
 	let fragsLoaded = $state(0);
 	let fragErrors = $state(0);
 	let debugLog = $state<string[]>([]);
+	// console.log is cheap and safe to call at any frequency, but writing to
+	// $state forces a Svelte re-render on every call — with progressive
+	// fragment loading, hls.js can fire buffer events many times per second
+	// for a single large segment, and doing a reactive update on every one
+	// of those was enough to flood the main thread and make the whole page
+	// (including plain, network-free buttons like "Back to programs")
+	// stop responding to clicks entirely. Batch UI updates instead of
+	// applying them synchronously per call.
+	let pendingLogLines: string[] = [];
+	let logFlushScheduled = false;
+	function flushDebugLog() {
+		logFlushScheduled = false;
+		if (pendingLogLines.length === 0) return;
+		debugLog = [...debugLog, ...pendingLogLines].slice(-20);
+		pendingLogLines = [];
+	}
 	function logDebug(line: string) {
 		console.log(`[catchup] ${line}`);
-		debugLog = [...debugLog.slice(-19), `${new Date().toISOString().slice(11, 19)} ${line}`];
+		pendingLogLines.push(`${new Date().toISOString().slice(11, 19)} ${line}`);
+		if (!logFlushScheduled) {
+			logFlushScheduled = true;
+			setTimeout(flushDebugLog, 200);
+		}
 	}
 
 	$effect(() => {
@@ -209,12 +229,12 @@
 				hlsStatus = `Loaded ${fragsLoaded} fragment(s)`;
 				logDebug(`frag loaded: sn=${data.frag.sn} bytes=${data.frag.stats?.loaded ?? '?'}`);
 			});
-			hls.on(Hls.Events.BUFFER_APPENDING, (_e, data) => {
-				logDebug(`buffer appending: type=${data.type} bytes=${data.data?.byteLength ?? data.data?.length ?? '?'}`);
-			});
-			hls.on(Hls.Events.BUFFER_APPENDED, (_e, data) => {
-				logDebug(`buffer appended: type=${data.type}`);
-			});
+			// Deliberately not logging BUFFER_APPENDING/BUFFER_APPENDED — with
+			// progressive fragment loading these fire many times per second
+			// for a single large segment, and that per-chunk verbosity is
+			// exactly what previously flooded the page into unresponsiveness.
+			// FRAG_LOADED above already reports per-fragment progress, which
+			// is the granularity that's actually useful here.
 			hls.on(Hls.Events.ERROR, (_event, data) => {
 				console.error('[catchup] hls.js error', data);
 				if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR || data.details === Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT) {
