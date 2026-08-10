@@ -47,13 +47,18 @@
 
 		const requestId = ++entriesRequestId;
 		entriesLoading = true;
+		console.log(`[catchup] fetching programs for channel ${channel.id} "${channel.name}"`);
 		try {
 			const res = await fetch(`/api/catchup/${channel.id}`);
+			console.log(`[catchup] /api/catchup/${channel.id} -> HTTP ${res.status}`);
 			const body = res.ok ? await res.json() : { entries: [] };
+			if (!res.ok) console.error('[catchup] entries fetch failed', res.status, await res.text().catch(() => ''));
 			if (requestId === entriesRequestId) {
 				entries = Array.isArray(body.entries) ? body.entries : [];
+				console.log(`[catchup] loaded ${entries.length} program(s)`);
 			}
-		} catch {
+		} catch (err) {
+			console.error('[catchup] entries fetch threw', err);
 			if (requestId === entriesRequestId) entries = [];
 		} finally {
 			if (requestId === entriesRequestId) entriesLoading = false;
@@ -73,6 +78,28 @@
 	let hlsStatus = $state('');
 	let fragsLoaded = $state(0);
 	let fragErrors = $state(0);
+	let debugLog = $state<string[]>([]);
+	function logDebug(line: string) {
+		console.log(`[catchup] ${line}`);
+		debugLog = [...debugLog.slice(-19), `${new Date().toISOString().slice(11, 19)} ${line}`];
+	}
+
+	$effect(() => {
+		function onWindowError(e: ErrorEvent) {
+			logDebug(`window error: ${e.message}`);
+			console.error('[catchup] window error', e.error ?? e);
+		}
+		function onRejection(e: PromiseRejectionEvent) {
+			logDebug(`unhandled rejection: ${String(e.reason)}`);
+			console.error('[catchup] unhandled rejection', e.reason);
+		}
+		window.addEventListener('error', onWindowError);
+		window.addEventListener('unhandledrejection', onRejection);
+		return () => {
+			window.removeEventListener('error', onWindowError);
+			window.removeEventListener('unhandledrejection', onRejection);
+		};
+	});
 
 	$effect(() => {
 		const entry = watching;
@@ -84,7 +111,8 @@
 		if (!entry || !channel || !videoEl) return;
 
 		const src = `/api/stream/catchup/${channel.id}?start=${entry.start}&duration=${entry.durationMinutes}`;
-		console.log('[catchup] loading', src);
+		debugLog = [];
+		logDebug(`loading ${src}`);
 		hlsStatus = 'Requesting playlist…';
 
 		// No fragment has started loading a few seconds after the manifest
@@ -102,22 +130,37 @@
 		}
 
 		if (Hls.isSupported()) {
-			hls = new Hls();
+			hls = new Hls({ debug: false });
+			hls.on(Hls.Events.MEDIA_ATTACHING, () => logDebug('media attaching'));
+			hls.on(Hls.Events.MEDIA_ATTACHED, () => logDebug('media attached'));
 			hls.on(Hls.Events.MANIFEST_LOADING, () => {
 				hlsStatus = 'Loading manifest…';
+				logDebug('manifest loading');
 			});
 			hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
 				const fragCount = data.levels?.[0]?.details?.fragments?.length;
 				hlsStatus = `Manifest parsed — ${fragCount ?? '?'} fragment(s) listed`;
+				logDebug(`manifest parsed: ${fragCount ?? '?'} fragments`);
 				armStallWatchdog();
-				videoEl?.play().catch(() => {});
+				videoEl?.play().catch((e) => logDebug(`play() rejected: ${e}`));
+			});
+			hls.on(Hls.Events.LEVEL_LOADED, (_e, data) => {
+				logDebug(`level loaded: ${data.details.fragments.length} fragments, live=${data.details.live}`);
 			});
 			hls.on(Hls.Events.FRAG_LOADING, (_e, data) => {
 				hlsStatus = `Loading fragment ${data.frag.sn}…`;
+				logDebug(`frag loading: sn=${data.frag.sn} url=${data.frag.url}`);
 			});
-			hls.on(Hls.Events.FRAG_LOADED, () => {
+			hls.on(Hls.Events.FRAG_LOADED, (_e, data) => {
 				fragsLoaded++;
 				hlsStatus = `Loaded ${fragsLoaded} fragment(s)`;
+				logDebug(`frag loaded: sn=${data.frag.sn} bytes=${data.frag.stats?.loaded ?? '?'}`);
+			});
+			hls.on(Hls.Events.BUFFER_APPENDING, (_e, data) => {
+				logDebug(`buffer appending: type=${data.type} bytes=${data.data?.byteLength ?? data.data?.length ?? '?'}`);
+			});
+			hls.on(Hls.Events.BUFFER_APPENDED, (_e, data) => {
+				logDebug(`buffer appended: type=${data.type}`);
 			});
 			hls.on(Hls.Events.ERROR, (_event, data) => {
 				console.error('[catchup] hls.js error', data);
@@ -128,6 +171,7 @@
 				const resp = (data as { response?: { code?: number; text?: string } }).response;
 				const detail = resp ? ` — HTTP ${resp.code}${resp.text ? `: ${resp.text.slice(0, 150)}` : ''}` : '';
 				hlsStatus = `${data.fatal ? 'Fatal' : 'Non-fatal'}: ${data.details}${detail}`;
+				logDebug(`error: ${data.fatal ? 'FATAL' : 'non-fatal'} ${data.details}${detail}`);
 				if (!data.fatal) return;
 				if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
 				else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
@@ -136,15 +180,17 @@
 			hls.loadSource(src);
 			hls.attachMedia(videoEl);
 		} else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+			logDebug('using native HLS (hls.js not supported)');
 			videoEl.src = src;
 			videoEl.addEventListener('error', () => {
 				const err = videoEl?.error;
 				playerError = `Playback error${err ? ` (code ${err.code}: ${err.message})` : ''}`;
-				console.error('[catchup] video element error', err);
+				logDebug(`video element error: code=${err?.code} message=${err?.message}`);
 			});
-			videoEl.play().catch(() => {});
+			videoEl.play().catch((e) => logDebug(`play() rejected: ${e}`));
 		} else {
 			playerError = 'HLS playback is not supported in this browser.';
+			logDebug('no HLS support at all');
 		}
 
 		return () => {
@@ -224,6 +270,9 @@
 						<p class="player-error">{playerError}</p>
 					{:else if hlsStatus}
 						<p class="hls-status">{hlsStatus}</p>
+					{/if}
+					{#if debugLog.length > 0}
+						<pre class="debug-log">{debugLog.join('\n')}</pre>
 					{/if}
 					<div class="watching-info">
 						<h2>{watching.title}</h2>
@@ -566,6 +615,21 @@
 		font-family: var(--font-mono);
 		font-size: 0.72rem;
 		color: var(--text-faint);
+	}
+	.debug-log {
+		margin-top: 0.6rem;
+		padding: 0.6rem 0.75rem;
+		border-radius: var(--radius-sm);
+		background: var(--bg-soft);
+		border: 1px solid var(--border);
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		line-height: 1.5;
+		color: var(--text-faint);
+		max-height: 10rem;
+		overflow-y: auto;
+		white-space: pre-wrap;
+		word-break: break-all;
 	}
 	.watching-info {
 		margin-top: 1.25rem;

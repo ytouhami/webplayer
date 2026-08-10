@@ -13,8 +13,13 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const streamId = Number(id);
 	const channels = await getLiveChannels(locals.userSession);
 	const channel = channels.find((c) => c.id === streamId);
-	if (!channel) throw error(404, 'Channel not found');
+	if (!channel) {
+		console.error(`[catchup-api] channel ${streamId} not found in ${channels.length} loaded channels`);
+		throw error(404, 'Channel not found');
+	}
 
+	console.log(`[catchup-api] listing programs for channel ${streamId} "${channel.name}" (archiveDays=${channel.archiveDays})`);
 	const entries = await getChannelCatchup(locals.userSession, streamId, channel.archiveDays);
+	console.log(`[catchup-api] channel ${streamId}: ${entries.length} program(s) in archive window`);
 	return json({ entries });
 };

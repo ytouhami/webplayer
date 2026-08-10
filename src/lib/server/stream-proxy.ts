@@ -28,11 +28,27 @@ export function verifySignedUrl(url: string, signature: string): boolean {
 	return a.length === b.length && timingSafeEqual(a, b);
 }
 
+function redactPath(rawUrl: string): string {
+	try {
+		const u = new URL(rawUrl);
+		return `${u.host}${u.pathname.replace(/\/[^/]+\/[^/]+\//, '/***/***/')}`;
+	} catch {
+		return '(unparseable url)';
+	}
+}
+
+let requestCounter = 0;
+
 // Fetches an HLS media playlist from the provider and rewrites each segment
 // line into a signed /api/stream/segment URL, so playback works from both
 // /live (live edge) and /catchup (timeshift) — same provider redirect/mixed
 // -content handling either way, just a different source playlist URL.
 export async function fetchAndRewritePlaylist(providerUrl: string): Promise<string> {
+	const reqId = ++requestCounter;
+	const safeUrl = redactPath(providerUrl);
+	console.log(`[stream][playlist#${reqId}] requesting ${safeUrl}`);
+	const startedAt = Date.now();
+
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), PLAYLIST_TIMEOUT_MS);
 
@@ -43,8 +59,12 @@ export async function fetchAndRewritePlaylist(providerUrl: string): Promise<stri
 			signal: controller.signal,
 			headers: { 'User-Agent': PLAYER_USER_AGENT }
 		});
+		const elapsed = Date.now() - startedAt;
+		console.log(
+			`[stream][playlist#${reqId}] upstream responded HTTP ${response.status} in ${elapsed}ms, redirected-to=${redactPath(response.url)}, content-type=${response.headers.get('content-type')}`
+		);
 		if (!response.ok) {
-			console.error(`[stream] playlist fetch got HTTP ${response.status} from ${new URL(providerUrl).host}${new URL(providerUrl).pathname.replace(/\/[^/]+\/[^/]+\//, '/***/***/')}`);
+			console.error(`[stream][playlist#${reqId}] FAILED: HTTP ${response.status} for ${safeUrl}`);
 			// Passes the provider's real status through (not our own 502
 			// wrapper) so hls.js's manifestLoadError payload — surfaced in the
 			// player's on-page diagnostics — shows the actual cause.
@@ -54,16 +74,19 @@ export async function fetchAndRewritePlaylist(providerUrl: string): Promise<stri
 		finalUrl = response.url;
 	} catch (err) {
 		if (err && typeof err === 'object' && 'status' in err) throw err;
-		console.error(`[stream] playlist fetch failed: ${err instanceof Error ? err.message : err}`);
+		console.error(`[stream][playlist#${reqId}] EXCEPTION for ${safeUrl}: ${err instanceof Error ? err.stack ?? err.message : err}`);
 		throw error(502, 'Failed to reach provider');
 	} finally {
 		clearTimeout(timeout);
 	}
 
 	if (!playlist.trimStart().startsWith('#EXTM3U')) {
-		console.error(`[stream] provider did not return a playlist, got: ${playlist.slice(0, 200)}`);
+		console.error(`[stream][playlist#${reqId}] provider did not return a playlist, got: ${playlist.slice(0, 300)}`);
 		throw error(502, 'Provider did not return a valid stream playlist');
 	}
+
+	const segmentCount = playlist.split('\n').filter((l) => l.trim() && !l.trim().startsWith('#')).length;
+	console.log(`[stream][playlist#${reqId}] OK — ${segmentCount} segment line(s)`);
 
 	const proxySegment = (rawUri: string): string => {
 		const absolute = new URL(rawUri, finalUrl).href;

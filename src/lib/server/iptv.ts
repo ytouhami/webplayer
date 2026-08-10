@@ -367,15 +367,17 @@ export async function getChannelCatchup(
 			signal: controller.signal,
 			headers: { 'User-Agent': PLAYER_USER_AGENT }
 		});
+		console.log(`[iptv] get_simple_data_table for stream ${streamId} -> HTTP ${response.status}`);
 		if (!response.ok) return [];
 
 		const data = await response.json();
 		const listings: XtreamEpgListing[] = Array.isArray(data?.epg_listings) ? data.epg_listings : [];
+		console.log(`[iptv] stream ${streamId}: ${listings.length} raw EPG listing(s) returned`);
 
 		const now = Date.now() / 1000;
 		const earliest = now - archiveDays * 86400;
 
-		return listings
+		const result = listings
 			.map((l) => ({
 				title: decodeEpgText(l.title) || 'Untitled',
 				description: decodeEpgText(l.description),
@@ -394,8 +396,10 @@ export async function getChannelCatchup(
 				start: l.start,
 				durationMinutes: Math.max(1, Math.round((l.stop - l.start) / 60))
 			}));
+		console.log(`[iptv] stream ${streamId}: ${result.length} listing(s) within ${archiveDays}-day archive window`);
+		return result;
 	} catch (err) {
-		console.error(`[iptv] catchup fetch error for stream ${streamId}: ${err instanceof Error ? err.message : err}`);
+		console.error(`[iptv] catchup fetch error for stream ${streamId}: ${err instanceof Error ? err.stack ?? err.message : err}`);
 		return [];
 	} finally {
 		clearTimeout(timeout);
@@ -405,7 +409,9 @@ export async function getChannelCatchup(
 export function buildTimeshiftUrl(session: UserSession, streamId: number, start: number, durationMinutes: number): string {
 	const base = session.hostUrl.replace(/\/+$/, '');
 	const stamp = timeshiftStamp(start);
-	return `${base}/timeshift/${encodeURIComponent(session.username)}/${encodeURIComponent(session.password)}/${durationMinutes}/${stamp}/${streamId}.m3u8`;
+	const url = `${base}/timeshift/${encodeURIComponent(session.username)}/${encodeURIComponent(session.password)}/${durationMinutes}/${stamp}/${streamId}.m3u8`;
+	console.log(`[iptv] built timeshift URL for stream ${streamId}: start=${stamp} duration=${durationMinutes}min`);
+	return url;
 }
 
 // Synthesizes a standard M3U playlist from the same channel list /live
