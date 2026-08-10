@@ -1,17 +1,8 @@
 <script lang="ts">
+	import AppTopbar from '$lib/components/AppTopbar.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-
-	let theme = $state<'light' | 'dark'>('dark');
-	$effect(() => {
-		theme = (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
-	});
-	function toggleTheme() {
-		theme = theme === 'light' ? 'dark' : 'light';
-		document.documentElement.setAttribute('data-theme', theme);
-		localStorage.setItem('pulse-theme', theme);
-	}
 
 	let searchQuery = $state('');
 	let debouncedQuery = $state('');
@@ -71,22 +62,7 @@
 </svelte:head>
 
 <div class="page-shell">
-	<header class="topbar">
-		<a href="/live" class="back-link">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-			Live TV
-		</a>
-		<div class="topbar-divider"></div>
-		<span class="topbar-title">TV Guide</span>
-		<div class="topbar-spacer"></div>
-		<button class="icon-btn" aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} onclick={toggleTheme}>
-			{#if theme === 'light'}
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>
-			{:else}
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
-			{/if}
-		</button>
-	</header>
+	<AppTopbar title="TV Guide" expiryLabel={data.expiryLabel} activePage="epg" />
 
 	<div class="body-shell">
 		<aside class="channel-sidebar">
@@ -162,67 +138,6 @@
 		display: flex;
 		flex-direction: column;
 		overflow-x: hidden;
-	}
-
-	.topbar {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 1rem 1.5rem;
-		border-bottom: 1px solid var(--border);
-		flex-shrink: 0;
-		min-width: 0;
-	}
-	.back-link {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		font-size: 0.85rem;
-		color: var(--text-dim);
-		padding: 0.4rem 0.6rem;
-		border-radius: var(--radius-sm);
-	}
-	.back-link svg {
-		width: 1rem;
-		height: 1rem;
-	}
-	.back-link:hover {
-		color: var(--accent-ui);
-		background: var(--veil-a);
-	}
-	.topbar-divider {
-		width: 1px;
-		height: 1.2rem;
-		background: var(--border);
-	}
-	.topbar-title {
-		font-family: var(--font-display);
-		font-weight: 600;
-		font-size: 0.95rem;
-	}
-	.topbar-spacer {
-		flex: 1;
-	}
-	.icon-btn {
-		width: 2.3rem;
-		height: 2.3rem;
-		border-radius: 50%;
-		background: var(--veil-a);
-		border: 1px solid var(--border);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: var(--text-dim);
-		cursor: pointer;
-		transition: color 0.15s ease, border-color 0.15s ease;
-	}
-	.icon-btn svg {
-		width: 1rem;
-		height: 1rem;
-	}
-	.icon-btn:hover {
-		color: var(--accent-ui);
-		border-color: var(--accent-ui);
 	}
 
 	.body-shell {

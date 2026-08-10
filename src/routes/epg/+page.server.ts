@@ -1,12 +1,33 @@
-import { redirect } from '@sveltejs/kit';
-import { getLiveChannels } from '$lib/server/iptv';
-import type { PageServerLoad } from './$types';
+import { error, redirect } from '@sveltejs/kit';
+import { getAccountExpiry, getLiveChannels } from '$lib/server/iptv';
+import { clearUserSession } from '$lib/server/session';
+import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.userSession) {
 		throw redirect(303, '/login');
 	}
 
-	const channels = await getLiveChannels(locals.userSession);
-	return { channels };
+	const [channels, expiry] = await Promise.all([
+		getLiveChannels(locals.userSession),
+		getAccountExpiry(locals.userSession)
+	]);
+	const expiryLabel = expiry
+		? expiry.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+		: 'Unlimited';
+
+	return { channels, expiryLabel };
+};
+
+export const actions: Actions = {
+	refresh: async ({ locals }) => {
+		if (!locals.userSession) throw error(401, 'Not authenticated');
+		await getLiveChannels(locals.userSession, { forceRefresh: true });
+		return { refreshed: true };
+	},
+
+	logout: async ({ cookies }) => {
+		clearUserSession(cookies);
+		throw redirect(303, '/login');
+	}
 };
