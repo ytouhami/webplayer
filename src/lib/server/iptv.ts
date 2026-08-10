@@ -129,7 +129,6 @@ export type LiveChannel = {
 	colorA: string;
 	colorB: string;
 	icon: string | null;
-	archiveDays: number;
 };
 
 // Deterministic per-channel badge letters + gradient, since the real API
@@ -169,8 +168,6 @@ type XtreamLiveStream = {
 	name: string;
 	category_id: string;
 	stream_icon?: string;
-	tv_archive?: number;
-	tv_archive_duration?: string | number;
 };
 
 // In-memory cache, keyed per host+account. The channel list is expensive to
@@ -231,8 +228,7 @@ export async function getLiveChannels(
 					badge: badgeFor(s.name),
 					colorA,
 					colorB,
-					icon: s.stream_icon?.trim() || null,
-					archiveDays: s.tv_archive === 1 ? Number(s.tv_archive_duration) || 0 : 0
+					icon: s.stream_icon?.trim() || null
 				};
 			});
 
@@ -318,100 +314,6 @@ export async function getChannelEpg(session: UserSession, streamId: number): Pro
 	} finally {
 		clearTimeout(timeout);
 	}
-}
-
-export type CatchupEntry = {
-	title: string;
-	description: string;
-	startLabel: string;
-	endLabel: string;
-	start: number; // epoch seconds, needed to build the timeshift stream URL
-	durationMinutes: number;
-};
-
-function timeshiftStamp(epochSeconds: number): string {
-	// Xtream's timeshift URLs take the program start as
-	// YYYY-MM-DD:HH-MM in the provider's own clock — reusing the epoch
-	// timestamp the provider itself returned for this program (rather than
-	// reformatting through the browser/server's local timezone) keeps it
-	// aligned with whatever clock basis that epoch already reflects.
-	const d = new Date(epochSeconds * 1000);
-	const pad = (n: number) => String(n).padStart(2, '0');
-	return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}:${pad(d.getUTCHours())}-${pad(d.getUTCMinutes())}`;
-}
-
-// Catch-up/TV-archive listings need the full per-channel EPG table (past
-// programs included), unlike get_short_epg's forward-looking window —
-// Xtream panels expose that via get_simple_data_table. Only entries that
-// have already ended and still fall inside the channel's archive retention
-// window (archiveDays, from tv_archive_duration) are watchable.
-export async function getChannelCatchup(
-	session: UserSession,
-	streamId: number,
-	archiveDays: number
-): Promise<CatchupEntry[]> {
-	if (archiveDays <= 0) return [];
-
-	const base = session.hostUrl.replace(/\/+$/, '');
-	const params = new URLSearchParams({
-		username: session.username,
-		password: session.password,
-		action: 'get_simple_data_table',
-		stream_id: String(streamId)
-	});
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-	try {
-		const response = await fetch(`${base}/player_api.php?${params.toString()}`, {
-			signal: controller.signal,
-			headers: { 'User-Agent': PLAYER_USER_AGENT }
-		});
-		console.log(`[iptv] get_simple_data_table for stream ${streamId} -> HTTP ${response.status}`);
-		if (!response.ok) return [];
-
-		const data = await response.json();
-		const listings: XtreamEpgListing[] = Array.isArray(data?.epg_listings) ? data.epg_listings : [];
-		console.log(`[iptv] stream ${streamId}: ${listings.length} raw EPG listing(s) returned`);
-
-		const now = Date.now() / 1000;
-		const earliest = now - archiveDays * 86400;
-
-		const result = listings
-			.map((l) => ({
-				title: decodeEpgText(l.title) || 'Untitled',
-				description: decodeEpgText(l.description),
-				start: l.start_timestamp ? Number(l.start_timestamp) : NaN,
-				stop: l.stop_timestamp ? Number(l.stop_timestamp) : NaN,
-				startLabel: formatEpgTime(l.start_timestamp, l.start),
-				endLabel: formatEpgTime(l.stop_timestamp, l.end)
-			}))
-			.filter((l) => !Number.isNaN(l.start) && !Number.isNaN(l.stop) && l.stop <= now && l.stop >= earliest)
-			.sort((a, b) => b.start - a.start)
-			.map((l) => ({
-				title: l.title,
-				description: l.description,
-				startLabel: l.startLabel,
-				endLabel: l.endLabel,
-				start: l.start,
-				durationMinutes: Math.max(1, Math.round((l.stop - l.start) / 60))
-			}));
-		console.log(`[iptv] stream ${streamId}: ${result.length} listing(s) within ${archiveDays}-day archive window`);
-		return result;
-	} catch (err) {
-		console.error(`[iptv] catchup fetch error for stream ${streamId}: ${err instanceof Error ? err.stack ?? err.message : err}`);
-		return [];
-	} finally {
-		clearTimeout(timeout);
-	}
-}
-
-export function buildTimeshiftUrl(session: UserSession, streamId: number, start: number, durationMinutes: number): string {
-	const base = session.hostUrl.replace(/\/+$/, '');
-	const stamp = timeshiftStamp(start);
-	const url = `${base}/timeshift/${encodeURIComponent(session.username)}/${encodeURIComponent(session.password)}/${durationMinutes}/${stamp}/${streamId}.m3u8`;
-	console.log(`[iptv] built timeshift URL for stream ${streamId}: start=${stamp} duration=${durationMinutes}min`);
-	return url;
 }
 
 // Synthesizes a standard M3U playlist from the same channel list /live
