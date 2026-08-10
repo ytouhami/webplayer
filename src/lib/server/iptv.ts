@@ -217,18 +217,20 @@ export async function getLiveChannels(
 		const streams: XtreamLiveStream[] = await streamRes.json();
 		const categoryNames = new Map(categories.map((c) => [c.category_id, c.category_name]));
 
-		const channels = streams.map((s) => {
-			const [colorA, colorB] = BADGE_PALETTE[seedFromString(s.name) % BADGE_PALETTE.length];
-			return {
-				id: s.stream_id,
-				name: s.name,
-				category: categoryNames.get(s.category_id) ?? 'General',
-				badge: badgeFor(s.name),
-				colorA,
-				colorB,
-				icon: s.stream_icon?.trim() || null
-			};
-		});
+		const channels = streams
+			.filter((s) => !s.name.trim().startsWith('#'))
+			.map((s) => {
+				const [colorA, colorB] = BADGE_PALETTE[seedFromString(s.name) % BADGE_PALETTE.length];
+				return {
+					id: s.stream_id,
+					name: s.name,
+					category: categoryNames.get(s.category_id) ?? 'General',
+					badge: badgeFor(s.name),
+					colorA,
+					colorB,
+					icon: s.stream_icon?.trim() || null
+				};
+			});
 
 		channelsCache.set(key, channels);
 		return channels;
