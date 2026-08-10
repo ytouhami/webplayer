@@ -20,6 +20,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<link rel="manifest" href="/manifest.webmanifest" />
 	<style>
 		:root {
 			--accent: {accentColor};
