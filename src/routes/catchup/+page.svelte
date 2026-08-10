@@ -70,23 +70,62 @@
 	let videoEl: HTMLVideoElement | undefined = $state();
 	let hls: Hls | undefined;
 	let playerError = $state<string | null>(null);
+	let hlsStatus = $state('');
+	let fragsLoaded = $state(0);
+	let fragErrors = $state(0);
 
 	$effect(() => {
 		const entry = watching;
 		const channel = activeChannel;
 		playerError = null;
+		hlsStatus = '';
+		fragsLoaded = 0;
+		fragErrors = 0;
 		if (!entry || !channel || !videoEl) return;
 
 		const src = `/api/stream/catchup/${channel.id}?start=${entry.start}&duration=${entry.durationMinutes}`;
 		console.log('[catchup] loading', src);
+		hlsStatus = 'Requesting playlist…';
+
+		// No fragment has started loading a few seconds after the manifest
+		// parsed cleanly — that's a silent stall (no fatal error to react
+		// to), so surface it directly instead of leaving the spinner stuck
+		// with no explanation.
+		let stallTimer: ReturnType<typeof setTimeout> | undefined;
+		function armStallWatchdog() {
+			clearTimeout(stallTimer);
+			stallTimer = setTimeout(() => {
+				if (fragsLoaded === 0) {
+					hlsStatus = `Stalled: manifest parsed but no fragment has loaded after 8s (fragment errors so far: ${fragErrors})`;
+				}
+			}, 8000);
+		}
 
 		if (Hls.isSupported()) {
 			hls = new Hls();
-			hls.on(Hls.Events.MANIFEST_PARSED, () => {
+			hls.on(Hls.Events.MANIFEST_LOADING, () => {
+				hlsStatus = 'Loading manifest…';
+			});
+			hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
+				const fragCount = data.levels?.[0]?.details?.fragments?.length;
+				hlsStatus = `Manifest parsed — ${fragCount ?? '?'} fragment(s) listed`;
+				armStallWatchdog();
 				videoEl?.play().catch(() => {});
+			});
+			hls.on(Hls.Events.FRAG_LOADING, (_e, data) => {
+				hlsStatus = `Loading fragment ${data.frag.sn}…`;
+			});
+			hls.on(Hls.Events.FRAG_LOADED, () => {
+				fragsLoaded++;
+				hlsStatus = `Loaded ${fragsLoaded} fragment(s)`;
 			});
 			hls.on(Hls.Events.ERROR, (_event, data) => {
 				console.error('[catchup] hls.js error', data);
+				if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR || data.details === Hls.ErrorDetails.FRAG_LOAD_TIMEOUT) {
+					fragErrors++;
+					armStallWatchdog();
+				}
+				hlsStatus = `${data.fatal ? 'Fatal' : 'Non-fatal'}: ${data.details}`;
 				if (!data.fatal) return;
 				if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
 				else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
@@ -107,6 +146,7 @@
 		}
 
 		return () => {
+			clearTimeout(stallTimer);
 			if (hls) {
 				hls.destroy();
 				hls = undefined;
@@ -180,6 +220,8 @@
 					</div>
 					{#if playerError}
 						<p class="player-error">{playerError}</p>
+					{:else if hlsStatus}
+						<p class="hls-status">{hlsStatus}</p>
 					{/if}
 					<div class="watching-info">
 						<h2>{watching.title}</h2>
@@ -516,6 +558,12 @@
 		border: 1px solid color-mix(in srgb, #ff5c5c 30%, transparent);
 		color: #ff8080;
 		font-size: 0.82rem;
+	}
+	.hls-status {
+		margin-top: 0.85rem;
+		font-family: var(--font-mono);
+		font-size: 0.72rem;
+		color: var(--text-faint);
 	}
 	.watching-info {
 		margin-top: 1.25rem;
