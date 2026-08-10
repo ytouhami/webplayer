@@ -125,7 +125,9 @@
 					fragErrors++;
 					armStallWatchdog();
 				}
-				hlsStatus = `${data.fatal ? 'Fatal' : 'Non-fatal'}: ${data.details}`;
+				const resp = (data as { response?: { code?: number; text?: string } }).response;
+				const detail = resp ? ` — HTTP ${resp.code}${resp.text ? `: ${resp.text.slice(0, 150)}` : ''}` : '';
+				hlsStatus = `${data.fatal ? 'Fatal' : 'Non-fatal'}: ${data.details}${detail}`;
 				if (!data.fatal) return;
 				if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
 				else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
