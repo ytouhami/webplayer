@@ -40,6 +40,9 @@
 	let videoEl: HTMLVideoElement;
 	let playerShellEl: HTMLDivElement;
 	let channelListEl: HTMLUListElement;
+	let playPauseBtnEl: HTMLButtonElement;
+	let muteBtnEl: HTMLButtonElement;
+	let fullscreenBtnEl: HTMLButtonElement;
 	let hls: Hls | null = null;
 
 	function matches(name: string, query: string) {
@@ -220,24 +223,80 @@
 		channelListEl.querySelector(`[data-channel-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
 	});
 
+	// Back/Exit key names and codes vary a lot by platform — event.key gives
+	// a friendly name on some (Escape, Backspace), but Tizen sends keyCode
+	// 10009 and webOS/HbbTV-derived browsers send 461 with no reliable key
+	// name attached, so both are checked.
 	const BACK_KEYS = new Set(['Backspace', 'Escape', 'GoBack', 'XF86Back', 'Back']);
+	const BACK_KEYCODES = new Set([461, 10009, 27, 8]);
+	function isBackKey(e: KeyboardEvent): boolean {
+		return BACK_KEYS.has(e.key) || BACK_KEYCODES.has(e.keyCode) || BACK_KEYCODES.has(e.which);
+	}
+
+	// The play/pause, mute, and fullscreen buttons are real <button>
+	// elements — once one of them actually has focus, native
+	// Enter-activates-focused-button behavior already does the right thing
+	// on its own, so this only needs to (a) let arrow keys move focus
+	// between them and back to the channel list, and (b) get out of the
+	// way on Enter instead of applying the list/fullscreen shortcut logic
+	// meant for when focus is nowhere in particular.
+	function controlButtons(): HTMLButtonElement[] {
+		return [playPauseBtnEl, muteBtnEl, fullscreenBtnEl].filter(Boolean);
+	}
+
 	$effect(() => {
 		function onKeyDown(e: KeyboardEvent) {
-			const tag = (document.activeElement as HTMLElement | null)?.tagName;
-			if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+			const active = document.activeElement as HTMLElement | null;
+			if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
 
-			if (e.key === 'ArrowUp') {
+			// Any remote interaction counts as activity — keeps the overlay
+			// chrome visible while navigating instead of letting it fade out
+			// mid-interaction the way it would with no mouse/touch activity.
+			showControls();
+
+			// Dedicated hardware media button some remotes (Fire TV included)
+			// have — works regardless of what currently has focus.
+			if (e.key === 'MediaPlayPause' || e.keyCode === 179) {
 				e.preventDefault();
-				moveFocus(-1);
+				togglePlay();
+				return;
+			}
+
+			const buttons = controlButtons();
+			const controlIdx = buttons.indexOf(active as HTMLButtonElement);
+			const onControlButton = controlIdx !== -1;
+
+			if (e.key === 'ArrowLeft') {
+				if (onControlButton) {
+					e.preventDefault();
+					if (controlIdx > 0) buttons[controlIdx - 1].focus();
+					else active?.blur();
+				}
+			} else if (e.key === 'ArrowRight') {
+				if (onControlButton) {
+					e.preventDefault();
+					if (controlIdx < buttons.length - 1) buttons[controlIdx + 1].focus();
+				} else {
+					e.preventDefault();
+					buttons[0]?.focus();
+				}
+			} else if (e.key === 'ArrowUp') {
+				if (!onControlButton) {
+					e.preventDefault();
+					moveFocus(-1);
+				}
 			} else if (e.key === 'ArrowDown') {
-				e.preventDefault();
-				moveFocus(1);
+				if (!onControlButton) {
+					e.preventDefault();
+					moveFocus(1);
+				}
 			} else if (e.key === 'Enter') {
+				if (onControlButton) return; // native button activation handles it
 				e.preventDefault();
 				if (isPlayerFullscreen()) togglePlay();
 				else if (focusedIndex === activeIndex) enterFullscreen();
 				else selectChannel(focusedIndex);
-			} else if (BACK_KEYS.has(e.key)) {
+			} else if (isBackKey(e)) {
 				if (isPlayerFullscreen()) {
 					e.preventDefault();
 					exitFullscreen();
@@ -335,14 +394,14 @@
 				<div class="player-overlay-bottom" class:chrome-hidden={!controlsVisible}>
 					<p class="now-cat">{activeChannel?.category ?? ''}</p>
 					<div class="controls">
-						<button class="ctrl-btn" aria-label={isPlaying ? 'Pause' : 'Play'} onclick={togglePlay}>
+						<button class="ctrl-btn" bind:this={playPauseBtnEl} aria-label={isPlaying ? 'Pause' : 'Play'} onclick={togglePlay}>
 							{#if isPlaying}
 								<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
 							{:else}
 								<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg>
 							{/if}
 						</button>
-						<button class="ctrl-btn" aria-label={isMuted ? 'Unmute' : 'Mute'} onclick={toggleMute}>
+						<button class="ctrl-btn" bind:this={muteBtnEl} aria-label={isMuted ? 'Unmute' : 'Mute'} onclick={toggleMute}>
 							{#if isMuted}
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
 							{:else}
@@ -359,7 +418,7 @@
 							oninput={(e) => handleVolumeInput(+e.currentTarget.value)}
 						/>
 						<div class="ctrl-spacer"></div>
-						<button class="ctrl-btn" aria-label="Fullscreen" onclick={toggleFullscreen}>
+						<button class="ctrl-btn" bind:this={fullscreenBtnEl} aria-label="Fullscreen" onclick={toggleFullscreen}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4v4M16 3h4v4M8 21H4v-4M16 21h4v-4"/></svg>
 						</button>
 					</div>
@@ -716,6 +775,11 @@
 	}
 	.ctrl-btn:hover {
 		background: rgba(255, 255, 255, 0.2);
+	}
+	.ctrl-btn:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 2px;
+		background: rgba(255, 255, 255, 0.25);
 	}
 	.ctrl-btn svg {
 		width: 0.95rem;
