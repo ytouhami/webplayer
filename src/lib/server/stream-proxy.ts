@@ -43,7 +43,13 @@ let requestCounter = 0;
 // line into a signed /api/stream/segment URL — necessary because the
 // provider's live edge servers are http-only even though our app is https,
 // so the browser can't fetch them directly (mixed content).
-export async function fetchAndRewritePlaylist(providerUrl: string): Promise<string> {
+//
+// Returns finalUrl (the URL actually fetched after following any redirect)
+// so callers polling a live channel repeatedly can cache and reuse it —
+// see /api/stream/[id] for why that matters.
+export async function fetchAndRewritePlaylist(
+	providerUrl: string
+): Promise<{ playlist: string; finalUrl: string }> {
 	const reqId = ++requestCounter;
 	const safeUrl = redactPath(providerUrl);
 	console.log(`[stream][playlist#${reqId}] requesting ${safeUrl}`);
@@ -94,7 +100,7 @@ export async function fetchAndRewritePlaylist(providerUrl: string): Promise<stri
 		return `/api/stream/segment?u=${encodeURIComponent(absolute)}&sig=${sig}`;
 	};
 
-	return playlist
+	const rewritten = playlist
 		.split('\n')
 		.map((line) => {
 			const trimmed = line.trim();
@@ -115,4 +121,6 @@ export async function fetchAndRewritePlaylist(providerUrl: string): Promise<stri
 			return proxySegment(trimmed);
 		})
 		.join('\n');
+
+	return { playlist: rewritten, finalUrl };
 }
