@@ -19,6 +19,9 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	}
 
 	const providerUrl = buildTimeshiftUrl(session, Number(id), start, duration);
+	console.log(
+		`[catchup] stream ${id}: start=${new Date(start * 1000).toISOString()} duration=${duration}min`
+	);
 	const rewritten = await fetchAndRewritePlaylist(providerUrl);
 
 	return new Response(rewritten, {

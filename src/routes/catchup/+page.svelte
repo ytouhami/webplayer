@@ -69,20 +69,36 @@
 
 	let videoEl: HTMLVideoElement | undefined = $state();
 	let hls: Hls | undefined;
+	let playerError = $state<string | null>(null);
 
 	$effect(() => {
 		const entry = watching;
 		const channel = activeChannel;
+		playerError = null;
 		if (!entry || !channel || !videoEl) return;
 
 		const src = `/api/stream/catchup/${channel.id}?start=${entry.start}&duration=${entry.durationMinutes}`;
+		console.log('[catchup] loading', src);
 
 		if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
 			videoEl.src = src;
+			videoEl.addEventListener('error', () => {
+				const err = videoEl?.error;
+				playerError = `Playback error${err ? ` (code ${err.code}: ${err.message})` : ''}`;
+				console.error('[catchup] video element error', err);
+			});
 		} else if (Hls.isSupported()) {
 			hls = new Hls();
+			hls.on(Hls.Events.ERROR, (_event, data) => {
+				console.error('[catchup] hls.js error', data);
+				if (data.fatal) {
+					playerError = `Playback failed: ${data.details} (${data.type})`;
+				}
+			});
 			hls.loadSource(src);
 			hls.attachMedia(videoEl);
+		} else {
+			playerError = 'HLS playback is not supported in this browser.';
 		}
 		videoEl.play().catch(() => {});
 
@@ -158,6 +174,9 @@
 						<!-- svelte-ignore a11y_media_has_caption -->
 						<video bind:this={videoEl} controls playsinline></video>
 					</div>
+					{#if playerError}
+						<p class="player-error">{playerError}</p>
+					{/if}
 					<div class="watching-info">
 						<h2>{watching.title}</h2>
 						<span class="watching-time">{watching.startLabel}{watching.endLabel ? ` – ${watching.endLabel}` : ''}</span>
@@ -450,7 +469,7 @@
 	}
 
 	.player-wrap {
-		max-width: 56rem;
+		width: 100%;
 	}
 	.back-link {
 		display: flex;
@@ -484,6 +503,15 @@
 	.video-shell video {
 		width: 100%;
 		height: 100%;
+	}
+	.player-error {
+		margin-top: 0.85rem;
+		padding: 0.7rem 0.9rem;
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, #ff5c5c 12%, transparent);
+		border: 1px solid color-mix(in srgb, #ff5c5c 30%, transparent);
+		color: #ff8080;
+		font-size: 0.82rem;
 	}
 	.watching-info {
 		margin-top: 1.25rem;
