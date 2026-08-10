@@ -27,6 +27,11 @@
 	}
 
 	let activeIndex = $state(0);
+	// Which channel is highlighted for remote/keyboard navigation — starts
+	// equal to activeIndex (the auto-played first channel) and only
+	// diverges while arrow-key browsing hasn't been committed with
+	// OK/Enter yet, same as "channel surfing" on a real set-top box.
+	let focusedIndex = $state(0);
 	let isPlaying = $state(false);
 	let isBuffering = $state(true);
 	let isMuted = $state(true);
@@ -34,6 +39,7 @@
 
 	let videoEl: HTMLVideoElement;
 	let playerShellEl: HTMLDivElement;
+	let channelListEl: HTMLUListElement;
 	let hls: Hls | null = null;
 
 	function matches(name: string, query: string) {
@@ -68,6 +74,7 @@
 
 	function selectChannel(i: number) {
 		activeIndex = i;
+		focusedIndex = i;
 		isBuffering = true;
 		const channel = data.channels[i];
 		if (channel) loadChannel(channel.id);
@@ -127,7 +134,13 @@
 		}
 	}
 
-	function toggleFullscreen() {
+	function isPlayerFullscreen(): boolean {
+		const doc = document as Document & { webkitFullscreenElement?: Element | null };
+		const video = videoEl as HTMLVideoElement & { webkitDisplayingFullscreen?: boolean };
+		return Boolean(document.fullscreenElement || doc.webkitFullscreenElement || video?.webkitDisplayingFullscreen);
+	}
+
+	function enterFullscreen() {
 		// iOS Safari doesn't support the standard Fullscreen API on a plain
 		// element at all — only <video> itself, via the non-standard
 		// webkitEnterFullscreen, which hands off to the native iOS player UI
@@ -136,25 +149,8 @@
 		// Falling straight through to that when the standard API is missing
 		// or rejects is what makes the button do *something* on mobile
 		// instead of silently no-oping.
-		const doc = document as Document & {
-			webkitFullscreenElement?: Element | null;
-			webkitExitFullscreen?: () => void;
-		};
-		const video = videoEl as HTMLVideoElement & {
-			webkitEnterFullscreen?: () => void;
-			webkitDisplayingFullscreen?: boolean;
-		};
+		const video = videoEl as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
 		const shell = playerShellEl as HTMLDivElement & { webkitRequestFullscreen?: () => void };
-
-		const isFullscreen = Boolean(
-			document.fullscreenElement || doc.webkitFullscreenElement || video.webkitDisplayingFullscreen
-		);
-
-		if (isFullscreen) {
-			if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-			else doc.webkitExitFullscreen?.();
-			return;
-		}
 
 		if (shell.requestFullscreen) {
 			shell.requestFullscreen().catch(() => video.webkitEnterFullscreen?.());
@@ -163,6 +159,17 @@
 		} else {
 			video.webkitEnterFullscreen?.();
 		}
+	}
+
+	function exitFullscreen() {
+		const doc = document as Document & { webkitExitFullscreen?: () => void };
+		if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+		else doc.webkitExitFullscreen?.();
+	}
+
+	function toggleFullscreen() {
+		if (isPlayerFullscreen()) exitFullscreen();
+		else enterFullscreen();
 	}
 
 	const eqBars = Array.from({ length: 14 }, () => ({
@@ -187,6 +194,61 @@
 		showControls();
 		return () => clearTimeout(hideTimer);
 	});
+
+	// TV remote support. Arrow keys move a "focused" channel highlight
+	// (independent of which channel is actually playing) and auto-scroll it
+	// into view; OK/Enter either switches to the highlighted channel, or —
+	// if it's already the one playing — enters fullscreen; a second OK
+	// while fullscreen toggles play/pause instead; Back/Exit while
+	// fullscreen shrinks back to the normal layout. Custom JS-driven focus
+	// rather than relying on each TV browser's own spatial-navigation
+	// implementation, which varies a lot across Tizen/webOS/Android TV and
+	// isn't reliably present at all on some of them.
+	let visibleIndices = $derived(
+		data.channels.map((_, i) => i).filter((i) => matches(data.channels[i].name, debouncedQuery))
+	);
+	function moveFocus(delta: number) {
+		if (visibleIndices.length === 0) return;
+		const pos = visibleIndices.indexOf(focusedIndex);
+		const nextPos =
+			pos === -1 ? 0 : Math.min(Math.max(pos + delta, 0), visibleIndices.length - 1);
+		focusedIndex = visibleIndices[nextPos];
+	}
+	$effect(() => {
+		const id = data.channels[focusedIndex]?.id;
+		if (id == null || !channelListEl) return;
+		channelListEl.querySelector(`[data-channel-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
+	});
+
+	const BACK_KEYS = new Set(['Backspace', 'Escape', 'GoBack', 'XF86Back', 'Back']);
+	$effect(() => {
+		function onKeyDown(e: KeyboardEvent) {
+			const tag = (document.activeElement as HTMLElement | null)?.tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+			if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				moveFocus(-1);
+			} else if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				moveFocus(1);
+			} else if (e.key === 'Enter') {
+				e.preventDefault();
+				if (isPlayerFullscreen()) togglePlay();
+				else if (focusedIndex === activeIndex) enterFullscreen();
+				else selectChannel(focusedIndex);
+			} else if (BACK_KEYS.has(e.key)) {
+				if (isPlayerFullscreen()) {
+					e.preventDefault();
+					exitFullscreen();
+				}
+				// Not fullscreen: let the key do whatever it normally does
+				// (browser back navigation, etc.) instead of swallowing it.
+			}
+		}
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	});
 </script>
 
 <svelte:head>
@@ -209,10 +271,16 @@
 				<input type="text" placeholder="Search channels" bind:value={searchQuery} />
 			</label>
 			<span class="list-count">{shownCount} {shownCount === 1 ? 'CHANNEL' : 'CHANNELS'}</span>
-			<ul class="channel-list">
+			<ul class="channel-list" bind:this={channelListEl}>
 				{#each data.channels as channel, i (channel.id)}
 					{#if matches(channel.name, debouncedQuery)}
-						<li class="channel-item" class:active={i === activeIndex} onclick={() => selectChannel(i)}>
+						<li
+							class="channel-item"
+							class:active={i === activeIndex}
+							class:focused={i === focusedIndex}
+							data-channel-id={channel.id}
+							onclick={() => selectChannel(i)}
+						>
 							{#if channel.icon && !brokenIcons.has(channel.id)}
 								<img
 									class="ch-badge ch-icon"
@@ -419,6 +487,10 @@
 	.channel-item.active {
 		background: var(--veil-a);
 		border-left-color: var(--accent-ui);
+	}
+	.channel-item.focused {
+		outline: 2px solid var(--accent-ui);
+		outline-offset: -2px;
 	}
 	.ch-badge {
 		width: 2.1rem;

@@ -18,6 +18,52 @@
 	}
 
 	let refreshing = $state(false);
+
+	let tvGuideLinkEl: HTMLAnchorElement;
+	let refreshFormEl: HTMLFormElement;
+	let logoutFormEl: HTMLFormElement;
+
+	// TV remote colored buttons — key names/codes for these are inconsistent
+	// across platforms (Tizen/webOS use named keys like "ColorF0Red", some
+	// Android TV/HbbTV-derived browsers only send the legacy numeric
+	// keyCodes 403/404/405/406), so both are checked. Mapping: Red=Logout
+	// (the usual "exit/stop" association with red), Green=Refresh,
+	// Yellow=TV Guide, Blue=theme toggle.
+	const COLOR_KEY_NAMES: Record<string, 'red' | 'green' | 'yellow' | 'blue'> = {
+		ColorF0Red: 'red',
+		Red: 'red',
+		ColorF1Green: 'green',
+		Green: 'green',
+		ColorF2Yellow: 'yellow',
+		Yellow: 'yellow',
+		ColorF3Blue: 'blue',
+		Blue: 'blue'
+	};
+	const COLOR_KEY_CODES: Record<number, 'red' | 'green' | 'yellow' | 'blue'> = {
+		403: 'red',
+		404: 'green',
+		405: 'yellow',
+		406: 'blue'
+	};
+
+	$effect(() => {
+		function onKeyDown(e: KeyboardEvent) {
+			const tag = (document.activeElement as HTMLElement | null)?.tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+			const color = COLOR_KEY_NAMES[e.key] ?? COLOR_KEY_CODES[e.keyCode];
+			if (!color) return;
+			e.preventDefault();
+
+			if (color === 'red') logoutFormEl.requestSubmit();
+			else if (color === 'green') {
+				if (!refreshing) refreshFormEl.requestSubmit();
+			} else if (color === 'yellow') tvGuideLinkEl.click();
+			else if (color === 'blue') toggleTheme();
+		}
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	});
 </script>
 
 <header class="topbar">
@@ -33,13 +79,14 @@
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 1 1 1 8"/><path d="M4 4v5h5"/><path d="M12 8v4l3 2"/></svg>
 		Catch Up
 	</a>
-	<a href="/epg" class="topbar-action action-guide" class:active={activePage === 'epg'} title="TV Guide">
+	<a href="/epg" class="topbar-action action-guide" class:active={activePage === 'epg'} title="TV Guide" bind:this={tvGuideLinkEl}>
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>
 		TV Guide
 	</a>
 	<form
 		method="POST"
 		action="?/refresh"
+		bind:this={refreshFormEl}
 		use:enhance={() => {
 			refreshing = true;
 			return async ({ update }) => {
@@ -53,7 +100,7 @@
 			Refresh
 		</button>
 	</form>
-	<form method="POST" action="?/logout">
+	<form method="POST" action="?/logout" bind:this={logoutFormEl}>
 		<button class="icon-btn" type="submit" title="Log out" aria-label="Log out">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
 		</button>
