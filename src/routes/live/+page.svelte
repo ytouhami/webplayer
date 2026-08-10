@@ -381,6 +381,14 @@
 		margin: 0;
 		scrollbar-width: thin;
 		scrollbar-color: var(--border-strong) transparent;
+		/* Without its own compositing layer, fast momentum-scrolling a long
+		   list on mobile WebKit/Chrome can blank the content until scrolling
+		   settles and the browser catches up on painting — promoting the
+		   scroll container to its own layer keeps it composited (just moved,
+		   not repainted) during the scroll instead. */
+		-webkit-overflow-scrolling: touch;
+		transform: translateZ(0);
+		will-change: transform;
 	}
 	.channel-list::-webkit-scrollbar {
 		width: 8px;
@@ -490,6 +498,21 @@
 		align-items: center;
 		justify-content: center;
 		transition: background 0.3s ease;
+	}
+	/* Mobile browsers' :fullscreen UA stylesheet doesn't always set both
+	   width and height explicitly right away — when it doesn't, our own
+	   aspect-ratio here computes a size first (from whichever dimension the
+	   browser did set), then the browser's fullscreen sizing catches up a
+	   moment later and overrides it, producing a visible resize-then-
+	   resize-again flicker. Taking over sizing completely and explicitly in
+	   fullscreen removes the ambiguity/race instead of relying on timing. */
+	.player-shell:fullscreen,
+	.player-shell:-webkit-full-screen {
+		width: 100vw;
+		height: 100vh;
+		aspect-ratio: auto;
+		border-radius: 0;
+		border: 0;
 	}
 	.player-shell video {
 		position: absolute;

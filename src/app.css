@@ -44,6 +44,7 @@
 }
 html {
 	font-size: 100%;
+	overflow-x: hidden;
 }
 body {
 	background: var(--bg);
@@ -52,6 +53,19 @@ body {
 	-webkit-font-smoothing: antialiased;
 	min-height: 100vh;
 	margin: 0;
+	overflow-x: hidden;
+}
+/* Backstop for mobile horizontal-scroll bugs: individual pages already set
+   overflow-x:hidden on their own root element, but that only clips content
+   that overflows *within* that element's own box — it doesn't help if
+   something (an unconstrained image, a fixed-position element, a stray
+   intrinsic-sized element) escapes that specific container and pushes the
+   true document width wider than the viewport instead. Clipping at html/
+   body catches that regardless of which element or page is responsible. */
+img,
+svg,
+video {
+	max-width: 100%;
 }
 a {
 	color: inherit;

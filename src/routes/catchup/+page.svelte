@@ -483,6 +483,14 @@
 		margin: 0;
 		scrollbar-width: thin;
 		scrollbar-color: var(--border-strong) transparent;
+		/* Without its own compositing layer, fast momentum-scrolling a long
+		   list on mobile WebKit/Chrome can blank the content until scrolling
+		   settles and the browser catches up on painting — promoting the
+		   scroll container to its own layer keeps it composited (just moved,
+		   not repainted) during the scroll instead. */
+		-webkit-overflow-scrolling: touch;
+		transform: translateZ(0);
+		will-change: transform;
 	}
 	.channel-list::-webkit-scrollbar {
 		width: 8px;
