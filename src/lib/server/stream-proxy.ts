@@ -44,7 +44,11 @@ export async function fetchAndRewritePlaylist(providerUrl: string): Promise<stri
 			headers: { 'User-Agent': PLAYER_USER_AGENT }
 		});
 		if (!response.ok) {
-			throw error(502, `Provider returned HTTP ${response.status}`);
+			console.error(`[stream] playlist fetch got HTTP ${response.status} from ${new URL(providerUrl).host}${new URL(providerUrl).pathname.replace(/\/[^/]+\/[^/]+\//, '/***/***/')}`);
+			// Passes the provider's real status through (not our own 502
+			// wrapper) so hls.js's manifestLoadError payload — surfaced in the
+			// player's on-page diagnostics — shows the actual cause.
+			throw error(response.status >= 400 && response.status <= 599 ? response.status : 502, `Provider returned HTTP ${response.status}`);
 		}
 		playlist = await response.text();
 		finalUrl = response.url;
