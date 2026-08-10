@@ -80,27 +80,31 @@
 		const src = `/api/stream/catchup/${channel.id}?start=${entry.start}&duration=${entry.durationMinutes}`;
 		console.log('[catchup] loading', src);
 
-		if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+		if (Hls.isSupported()) {
+			hls = new Hls();
+			hls.on(Hls.Events.MANIFEST_PARSED, () => {
+				videoEl?.play().catch(() => {});
+			});
+			hls.on(Hls.Events.ERROR, (_event, data) => {
+				console.error('[catchup] hls.js error', data);
+				if (!data.fatal) return;
+				if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
+				else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
+				else playerError = `Playback failed: ${data.details} (${data.type})`;
+			});
+			hls.loadSource(src);
+			hls.attachMedia(videoEl);
+		} else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
 			videoEl.src = src;
 			videoEl.addEventListener('error', () => {
 				const err = videoEl?.error;
 				playerError = `Playback error${err ? ` (code ${err.code}: ${err.message})` : ''}`;
 				console.error('[catchup] video element error', err);
 			});
-		} else if (Hls.isSupported()) {
-			hls = new Hls();
-			hls.on(Hls.Events.ERROR, (_event, data) => {
-				console.error('[catchup] hls.js error', data);
-				if (data.fatal) {
-					playerError = `Playback failed: ${data.details} (${data.type})`;
-				}
-			});
-			hls.loadSource(src);
-			hls.attachMedia(videoEl);
+			videoEl.play().catch(() => {});
 		} else {
 			playerError = 'HLS playback is not supported in this browser.';
 		}
-		videoEl.play().catch(() => {});
 
 		return () => {
 			if (hls) {
