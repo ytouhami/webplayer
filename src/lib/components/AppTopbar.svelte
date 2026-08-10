@@ -79,10 +79,6 @@
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l4 3 4-3"/><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="2.6"/></svg>
 		Live TV
 	</a>
-	<a href="#" class="topbar-action action-catchup" title="Catch Up">
-		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 1 1 1 8"/><path d="M4 4v5h5"/><path d="M12 8v4l3 2"/></svg>
-		Catch Up
-	</a>
 	<a href="/epg" class="topbar-action action-guide" class:active={activePage === 'epg'} title="TV Guide (Yellow)" bind:this={tvGuideLinkEl}>
 		<span class="remote-dot remote-dot-yellow"></span>
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>
@@ -219,9 +215,6 @@
 	}
 	.action-live {
 		--action-color: #20d9c6;
-	}
-	.action-catchup {
-		--action-color: #ff9459;
 	}
 	.action-guide {
 		--action-color: #9c8cfb;
