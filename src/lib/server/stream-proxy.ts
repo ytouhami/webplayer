@@ -43,7 +43,13 @@ let requestCounter = 0;
 // line into a signed /api/stream/segment URL, so playback works from both
 // /live (live edge) and /catchup (timeshift) — same provider redirect/mixed
 // -content handling either way, just a different source playlist URL.
-export async function fetchAndRewritePlaylist(providerUrl: string): Promise<string> {
+//
+// skipSegments drops that many leading (#EXTINF, uri) pairs before
+// rewriting — added for catch-up, where the provider's segment index 0
+// consistently 502s (confirmed directly against the provider: genuine,
+// reproducible backend failure specific to that one segment, unrelated to
+// anything on our side). Not used for /live.
+export async function fetchAndRewritePlaylist(providerUrl: string, skipSegments = 0): Promise<string> {
 	const reqId = ++requestCounter;
 	const safeUrl = redactPath(providerUrl);
 	console.log(`[stream][playlist#${reqId}] requesting ${safeUrl}`);
@@ -94,25 +100,55 @@ export async function fetchAndRewritePlaylist(providerUrl: string): Promise<stri
 		return `/api/stream/segment?u=${encodeURIComponent(absolute)}&sig=${sig}`;
 	};
 
-	return playlist
-		.split('\n')
-		.map((line) => {
-			const trimmed = line.trim();
-			if (!trimmed) return line;
+	const rewrittenLines: string[] = [];
+	let segmentsSkipped = 0;
+	let pendingExtinf: string | null = null;
 
-			if (trimmed.startsWith('#')) {
-				// #EXT-X-KEY (decryption key) and #EXT-X-MAP (fMP4 init segment)
-				// carry their own URI="..." attribute that also needs proxying —
-				// left as a raw provider URL, the browser can't fetch it (mixed
-				// content/CORS), so encrypted segments never get decrypted and
-				// fail to parse even though the segment fetches themselves "work".
-				if (trimmed.startsWith('#EXT-X-KEY') || trimmed.startsWith('#EXT-X-MAP')) {
-					return line.replace(/URI="([^"]+)"/, (_match, uri) => `URI="${proxySegment(uri)}"`);
-				}
-				return line;
+	for (const line of playlist.split('\n')) {
+		const trimmed = line.trim();
+		if (!trimmed) {
+			rewrittenLines.push(line);
+			continue;
+		}
+
+		if (trimmed.startsWith('#')) {
+			if (trimmed.startsWith('#EXTINF') && segmentsSkipped < skipSegments) {
+				// Hold this EXTINF line back — only emitted if its paired
+				// segment URI (next non-comment line) also ends up skipped, so
+				// we drop the whole (EXTINF, uri) pair together.
+				pendingExtinf = line;
+				continue;
 			}
+			if (trimmed.startsWith('#EXT-X-MEDIA-SEQUENCE:') && skipSegments > 0) {
+				const n = Number(trimmed.slice('#EXT-X-MEDIA-SEQUENCE:'.length));
+				rewrittenLines.push(`#EXT-X-MEDIA-SEQUENCE:${Number.isFinite(n) ? n + skipSegments : skipSegments}`);
+				continue;
+			}
+			// #EXT-X-KEY (decryption key) and #EXT-X-MAP (fMP4 init segment)
+			// carry their own URI="..." attribute that also needs proxying —
+			// left as a raw provider URL, the browser can't fetch it (mixed
+			// content/CORS), so encrypted segments never get decrypted and
+			// fail to parse even though the segment fetches themselves "work".
+			if (trimmed.startsWith('#EXT-X-KEY') || trimmed.startsWith('#EXT-X-MAP')) {
+				rewrittenLines.push(line.replace(/URI="([^"]+)"/, (_match, uri) => `URI="${proxySegment(uri)}"`));
+				continue;
+			}
+			rewrittenLines.push(line);
+			continue;
+		}
 
-			return proxySegment(trimmed);
-		})
-		.join('\n');
+		// A segment URI line, paired with the EXTINF just before it.
+		if (pendingExtinf !== null) {
+			pendingExtinf = null;
+			segmentsSkipped++;
+			continue;
+		}
+		rewrittenLines.push(proxySegment(trimmed));
+	}
+
+	if (segmentsSkipped > 0) {
+		console.log(`[stream][playlist#${reqId}] skipped ${segmentsSkipped} leading segment(s)`);
+	}
+
+	return rewrittenLines.join('\n');
 }

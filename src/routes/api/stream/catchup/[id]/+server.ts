@@ -22,7 +22,10 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	console.log(
 		`[catchup] stream ${id}: start=${new Date(start * 1000).toISOString()} duration=${duration}min`
 	);
-	const rewritten = await fetchAndRewritePlaylist(providerUrl);
+	// Segment index 0 consistently fails on this provider's backend
+	// (confirmed via direct testing — genuine, reproducible 502, not
+	// something on our side), so skip it and start from segment 1.
+	const rewritten = await fetchAndRewritePlaylist(providerUrl, 1);
 
 	return new Response(rewritten, {
 		headers: {
