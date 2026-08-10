@@ -36,6 +36,9 @@
 	let isBuffering = $state(true);
 	let isMuted = $state(true);
 	let volume = $state(100);
+	let playerError = $state<string | null>(null);
+	let networkRetries = 0;
+	const MAX_NETWORK_RETRIES = 3;
 
 	let videoEl: HTMLVideoElement;
 	let playerShellEl: HTMLDivElement;
@@ -53,19 +56,42 @@
 	let activeChannel = $derived(data.channels[activeIndex] as (typeof data.channels)[number] | undefined);
 
 	function loadChannel(channelId: number) {
+		playerError = null;
+		networkRetries = 0;
 		const url = `/api/stream/${channelId}`;
 		if (Hls.isSupported()) {
 			if (!hls) {
 				hls = new Hls({ lowLatencyMode: true });
 				hls.attachMedia(videoEl);
 				hls.on(Hls.Events.MANIFEST_PARSED, () => {
+					playerError = null;
 					videoEl.play().catch(() => {});
 				});
 				hls.on(Hls.Events.ERROR, (_event, data) => {
 					if (!data.fatal) return;
 					console.error('[hls]', data.type, data.details);
-					if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
-					else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
+					if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+						networkRetries++;
+						// Capped instead of retrying forever — an unbounded
+						// retry loop against a stream the provider keeps
+						// rejecting (e.g. this account's concurrent-stream
+						// limit already used by another device) means
+						// continuous requests piling up with zero visible
+						// feedback, which is both a bad experience and real
+						// load on our own server for no benefit.
+						if (networkRetries <= MAX_NETWORK_RETRIES) {
+							hls?.startLoad();
+						} else {
+							const resp = (data as { response?: { code?: number } }).response;
+							playerError = resp?.code
+								? `Playback failed after ${MAX_NETWORK_RETRIES} retries (HTTP ${resp.code}). If this account is already streaming on another device, that's likely why — most IPTV plans only allow a limited number of simultaneous streams.`
+								: `Playback failed after ${MAX_NETWORK_RETRIES} retries: ${data.details}.`;
+						}
+					} else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+						hls?.recoverMediaError();
+					} else {
+						playerError = `Playback failed: ${data.details}`;
+					}
 				});
 			}
 			hls.loadSource(url);
@@ -402,6 +428,12 @@
 					{/each}
 				</div>
 
+				{#if playerError}
+					<div class="player-error">
+						<p>{playerError}</p>
+					</div>
+				{/if}
+
 				<div class="player-overlay-bottom" class:chrome-hidden={!controlsVisible}>
 					<p class="now-cat">{activeChannel?.category ?? ''}</p>
 					<div class="controls">
@@ -723,6 +755,25 @@
 		50% {
 			transform: scaleY(1);
 		}
+	}
+
+	.player-error {
+		position: absolute;
+		left: 1.5rem;
+		right: 1.5rem;
+		bottom: 6.5rem;
+		z-index: 5;
+		padding: 0.9rem 1.1rem;
+		border-radius: var(--radius-md);
+		background: rgba(20, 6, 6, 0.85);
+		border: 1px solid rgba(255, 92, 92, 0.4);
+		backdrop-filter: blur(4px);
+	}
+	.player-error p {
+		margin: 0;
+		color: #ffb4b4;
+		font-size: 0.82rem;
+		line-height: 1.5;
 	}
 
 	.player-overlay-top {
