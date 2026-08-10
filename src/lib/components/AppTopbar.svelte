@@ -5,7 +5,7 @@
 		title,
 		expiryLabel,
 		activePage
-	}: { title: string; expiryLabel: string; activePage: 'live' | 'epg' } = $props();
+	}: { title: string; expiryLabel: string; activePage: 'live' | 'epg' | 'catchup' } = $props();
 
 	let theme = $state<'light' | 'dark'>('dark');
 	$effect(() => {
@@ -29,7 +29,7 @@
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l4 3 4-3"/><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="2.6"/></svg>
 		Live TV
 	</a>
-	<a href="#" class="topbar-action action-catchup" title="Catch Up">
+	<a href="/catchup" class="topbar-action action-catchup" class:active={activePage === 'catchup'} title="Catch Up">
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 1 1 1 8"/><path d="M4 4v5h5"/><path d="M12 8v4l3 2"/></svg>
 		Catch Up
 	</a>
