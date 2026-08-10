@@ -128,8 +128,41 @@
 	}
 
 	function toggleFullscreen() {
-		if (!document.fullscreenElement) playerShellEl.requestFullscreen?.();
-		else document.exitFullscreen?.();
+		// iOS Safari doesn't support the standard Fullscreen API on a plain
+		// element at all — only <video> itself, via the non-standard
+		// webkitEnterFullscreen, which hands off to the native iOS player UI
+		// (our custom overlay controls aren't available in that mode; that's
+		// a real platform limitation, not something we can style around).
+		// Falling straight through to that when the standard API is missing
+		// or rejects is what makes the button do *something* on mobile
+		// instead of silently no-oping.
+		const doc = document as Document & {
+			webkitFullscreenElement?: Element | null;
+			webkitExitFullscreen?: () => void;
+		};
+		const video = videoEl as HTMLVideoElement & {
+			webkitEnterFullscreen?: () => void;
+			webkitDisplayingFullscreen?: boolean;
+		};
+		const shell = playerShellEl as HTMLDivElement & { webkitRequestFullscreen?: () => void };
+
+		const isFullscreen = Boolean(
+			document.fullscreenElement || doc.webkitFullscreenElement || video.webkitDisplayingFullscreen
+		);
+
+		if (isFullscreen) {
+			if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+			else doc.webkitExitFullscreen?.();
+			return;
+		}
+
+		if (shell.requestFullscreen) {
+			shell.requestFullscreen().catch(() => video.webkitEnterFullscreen?.());
+		} else if (shell.webkitRequestFullscreen) {
+			shell.webkitRequestFullscreen();
+		} else {
+			video.webkitEnterFullscreen?.();
+		}
 	}
 
 	const eqBars = Array.from({ length: 14 }, () => ({
