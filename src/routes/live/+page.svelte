@@ -170,6 +170,23 @@
 		duration: Math.random() * 0.7 + 0.5,
 		delay: Math.random() * -1.5
 	}));
+
+	// Overlay chrome (channel badge, controls bar) starts visible, then
+	// fades after 5s of no pointer activity over the player — pointer
+	// events cover both mouse hover and touch taps in one listener, so
+	// the same logic works for desktop hover and mobile touch without
+	// branching on input type.
+	let controlsVisible = $state(true);
+	let hideTimer: ReturnType<typeof setTimeout> | undefined;
+	function showControls() {
+		controlsVisible = true;
+		clearTimeout(hideTimer);
+		hideTimer = setTimeout(() => (controlsVisible = false), 5000);
+	}
+	$effect(() => {
+		showControls();
+		return () => clearTimeout(hideTimer);
+	});
 </script>
 
 <svelte:head>
@@ -228,12 +245,13 @@
 				class:is-buffering={isBuffering}
 				bind:this={playerShellEl}
 				style={activeChannel ? `--ch-a:${activeChannel.colorA}; --ch-b:${activeChannel.colorB};` : ''}
+				onpointermove={showControls}
+				onpointerdown={showControls}
 			>
 				<!-- svelte-ignore a11y_media_has_caption -->
 				<video bind:this={videoEl} playsinline autoplay muted></video>
 
-				<div class="player-overlay-top">
-					<span class="live-badge"><span class="dot"></span>LIVE</span>
+				<div class="player-overlay-top" class:chrome-hidden={!controlsVisible}>
 					<span class="ch-number-badge">CH. {String(activeIndex + 1).padStart(2, '0')}</span>
 				</div>
 
@@ -246,8 +264,7 @@
 					{/each}
 				</div>
 
-				<div class="player-overlay-bottom">
-					<h2 class="now-title">{activeChannel?.name ?? ''}</h2>
+				<div class="player-overlay-bottom" class:chrome-hidden={!controlsVisible}>
 					<p class="now-cat">{activeChannel?.category ?? ''}</p>
 					<div class="controls">
 						<button class="ctrl-btn" aria-label={isPlaying ? 'Pause' : 'Play'} onclick={togglePlay}>
@@ -550,27 +567,11 @@
 		right: 0;
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		justify-content: flex-end;
 		padding: 1rem 1.25rem;
 		background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent);
-	}
-	.live-badge {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		font-family: var(--font-mono);
-		font-size: 0.68rem;
-		letter-spacing: 0.1em;
-		color: #fff;
-		background: var(--live);
-		padding: 0.3rem 0.6rem;
-		border-radius: 5px;
-	}
-	.live-badge .dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: #fff;
+		opacity: 1;
+		transition: opacity 0.3s ease;
 	}
 	.ch-number-badge {
 		font-family: var(--font-mono);
@@ -586,15 +587,15 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		padding: 2.5rem 1.25rem 1rem;
+		padding: 1.5rem 1.25rem 1rem;
 		background: linear-gradient(0deg, rgba(0, 0, 0, 0.55), transparent);
+		opacity: 1;
+		transition: opacity 0.3s ease;
 	}
-	.now-title {
-		color: #fff;
-		font-family: var(--font-display);
-		font-weight: 700;
-		font-size: 1.15rem;
-		margin: 0 0 0.15rem;
+	.player-overlay-top.chrome-hidden,
+	.player-overlay-bottom.chrome-hidden {
+		opacity: 0;
+		pointer-events: none;
 	}
 	.now-cat {
 		color: rgba(255, 255, 255, 0.75);
