@@ -144,6 +144,15 @@
 			manifestWatchdog = undefined;
 		}
 
+		// Retrying a fatal network error by calling startLoad() again is
+		// reasonable for a transient blip, but with no cap it becomes an
+		// infinite loop the moment the provider is persistently failing (e.g.
+		// a permanently-broken segment) — continuous requests plus a state
+		// update on every single attempt, which is enough to make the whole
+		// tab feel frozen/unresponsive, not just the player.
+		let networkRetries = 0;
+		const MAX_NETWORK_RETRIES = 3;
+
 		if (Hls.isSupported()) {
 			hls = new Hls({ debug: false });
 			hls.on(Hls.Events.MEDIA_ATTACHING, () => logDebug('media attaching'));
@@ -192,8 +201,16 @@
 				hlsStatus = `${data.fatal ? 'Fatal' : 'Non-fatal'}: ${data.details}${detail}`;
 				logDebug(`error: ${data.fatal ? 'FATAL' : 'non-fatal'} ${data.details}${detail}`);
 				if (!data.fatal) return;
-				if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
-				else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
+				if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+					networkRetries++;
+					if (networkRetries <= MAX_NETWORK_RETRIES) {
+						logDebug(`retrying (${networkRetries}/${MAX_NETWORK_RETRIES})`);
+						hls?.startLoad();
+					} else {
+						logDebug('giving up after max retries');
+						playerError = `Playback failed after ${MAX_NETWORK_RETRIES} retries: ${data.details}${detail}`;
+					}
+				} else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
 				else playerError = `Playback failed: ${data.details} (${data.type})`;
 			});
 			hls.loadSource(src);
