@@ -171,12 +171,22 @@ type XtreamLiveStream = {
 };
 
 // In-memory cache, keyed per host+account. The channel list is expensive to
-// fetch (two full-catalog API calls against the provider) and doesn't
-// change often, so page loads reuse it — only the explicit "Refresh
-// Playlist" action re-fetches. A failed fetch never overwrites a good
-// cache entry (returns the stale list instead), so a transient provider
-// hiccup doesn't wipe out a working channel list.
+// fetch (two full-catalog API calls against the provider, tens of
+// thousands of channels for a real provider) and doesn't change often, so
+// page loads reuse it — only the explicit "Refresh Playlist" action
+// re-fetches. A failed fetch never overwrites a good cache entry (returns
+// the stale list instead), so a transient provider hiccup doesn't wipe out
+// a working channel list.
 const channelsCache = new Map<string, LiveChannel[]>();
+
+// Coalesces concurrent callers onto a single in-flight fetch instead of
+// each starting its own — without this, several devices/tabs on the same
+// account loading /live (or /epg) at once with a cold cache (e.g. right
+// after a deploy restart, when the cache is empty) each independently
+// re-fetch and re-parse the entire catalog in parallel, multiplying
+// memory/CPU load and outbound requests to the provider by however many
+// were racing, instead of doing the work once and sharing the result.
+const inFlightFetches = new Map<string, Promise<LiveChannel[]>>();
 
 function cacheKey(session: UserSession): string {
 	return `${session.hostUrl}::${session.username}`;
@@ -190,6 +200,23 @@ export async function getLiveChannels(
 	const cached = channelsCache.get(key);
 	if (cached && !opts.forceRefresh) return cached;
 
+	const existing = inFlightFetches.get(key);
+	if (existing && !opts.forceRefresh) return existing;
+
+	const fetchPromise = fetchLiveChannels(session, key, cached);
+	inFlightFetches.set(key, fetchPromise);
+	try {
+		return await fetchPromise;
+	} finally {
+		inFlightFetches.delete(key);
+	}
+}
+
+async function fetchLiveChannels(
+	session: UserSession,
+	key: string,
+	cached: LiveChannel[] | undefined
+): Promise<LiveChannel[]> {
 	const base = session.hostUrl.replace(/\/+$/, '');
 	const params = new URLSearchParams({ username: session.username, password: session.password });
 	const headers = { 'User-Agent': PLAYER_USER_AGENT };
