@@ -56,15 +56,36 @@ export async function fetchAndRewritePlaylist(providerUrl: string): Promise<stri
 		clearTimeout(timeout);
 	}
 
+	if (!playlist.trimStart().startsWith('#EXTM3U')) {
+		console.error(`[stream] provider did not return a playlist, got: ${playlist.slice(0, 200)}`);
+		throw error(502, 'Provider did not return a valid stream playlist');
+	}
+
+	const proxySegment = (rawUri: string): string => {
+		const absolute = new URL(rawUri, finalUrl).href;
+		const sig = signUrl(absolute);
+		return `/api/stream/segment?u=${encodeURIComponent(absolute)}&sig=${sig}`;
+	};
+
 	return playlist
 		.split('\n')
 		.map((line) => {
 			const trimmed = line.trim();
-			if (!trimmed || trimmed.startsWith('#')) return line;
+			if (!trimmed) return line;
 
-			const absolute = new URL(trimmed, finalUrl).href;
-			const sig = signUrl(absolute);
-			return `/api/stream/segment?u=${encodeURIComponent(absolute)}&sig=${sig}`;
+			if (trimmed.startsWith('#')) {
+				// #EXT-X-KEY (decryption key) and #EXT-X-MAP (fMP4 init segment)
+				// carry their own URI="..." attribute that also needs proxying —
+				// left as a raw provider URL, the browser can't fetch it (mixed
+				// content/CORS), so encrypted segments never get decrypted and
+				// fail to parse even though the segment fetches themselves "work".
+				if (trimmed.startsWith('#EXT-X-KEY') || trimmed.startsWith('#EXT-X-MAP')) {
+					return line.replace(/URI="([^"]+)"/, (_match, uri) => `URI="${proxySegment(uri)}"`);
+				}
+				return line;
+			}
+
+			return proxySegment(trimmed);
 		})
 		.join('\n');
 }
