@@ -28,6 +28,16 @@
 				? null
 				: data.settings.logoUrl
 	);
+	// Backstop matching the public-facing pages — settings.ts already
+	// filters out anything that isn't a complete image data URL server-
+	// side, this just guarantees the preview can't show a broken icon
+	// either. Resets whenever the underlying URL changes (new upload,
+	// reset, etc.) so a stale failure doesn't stick around.
+	let logoPreviewFailed = $state(false);
+	$effect(() => {
+		logoDisplayUrl;
+		logoPreviewFailed = false;
+	});
 
 	let theme = $state<'light' | 'dark'>('dark');
 	$effect(() => {
@@ -179,8 +189,8 @@
 				<span class="field-label">LOGO</span>
 				<div class="logo-row">
 					<div class="logo-preview">
-						{#if logoDisplayUrl}
-							<img src={logoDisplayUrl} alt="Logo" />
+						{#if logoDisplayUrl && !logoPreviewFailed}
+							<img src={logoDisplayUrl} alt="Logo" onerror={() => (logoPreviewFailed = true)} />
 						{:else}
 							<svg viewBox="0 0 64 64" fill="none"><rect x="1.5" y="1.5" width="61" height="61" rx="18" fill="#0C0F14" stroke="#4FE3D3" stroke-opacity="0.35" stroke-width="1.5"/><rect x="13" y="36" width="7" height="12" rx="3" fill="#4FE3D3"/><rect x="24" y="28" width="7" height="20" rx="3" fill="#4FE3D3"/><rect x="35" y="20" width="7" height="28" rx="3" fill="#4FE3D3"/><rect x="46" y="12" width="7" height="36" rx="3" fill="#4FE3D3"/></svg>
 						{/if}

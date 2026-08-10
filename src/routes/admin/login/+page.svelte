@@ -7,6 +7,12 @@
 	let theme = $state<'light' | 'dark'>('dark');
 	let showPassword = $state(false);
 	let submitting = $state(false);
+	// Server-side validation in settings.ts already filters out anything
+	// that isn't a complete, correctly-padded image data URL, but this is
+	// a last-resort backstop so a broken image icon can never show
+	// regardless — fall back to the default mark the instant the browser
+	// itself fails to decode whatever's in logoUrl.
+	let logoFailed = $state(false);
 
 	$effect(() => {
 		theme = (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
@@ -54,8 +60,8 @@
 	}}
 >
 	<div class="brand">
-		{#if data.logoUrl}
-			<img src={data.logoUrl} alt="Logo" class="brand-logo" />
+		{#if data.logoUrl && !logoFailed}
+			<img src={data.logoUrl} alt="Logo" class="brand-logo" onerror={() => (logoFailed = true)} />
 		{:else}
 			<svg viewBox="0 0 64 64" fill="none">
 				<rect x="1.5" y="1.5" width="61" height="61" rx="18" fill="#0C0F14" stroke="#4FE3D3" stroke-opacity="0.35" stroke-width="1.5"/>
