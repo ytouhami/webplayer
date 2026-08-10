@@ -112,7 +112,7 @@
 		onclick={toggleTheme}
 	>
 		<span class="remote-dot remote-dot-blue"></span>
-		Theme
+		{theme === 'light' ? 'Dark' : 'Light'}
 	</button>
 </header>
 
