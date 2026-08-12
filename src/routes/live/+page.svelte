@@ -43,7 +43,9 @@
 	let videoEl: HTMLVideoElement;
 	let playerShellEl: HTMLDivElement;
 	let channelListEl: HTMLUListElement;
+	let prevBtnEl: HTMLButtonElement;
 	let playPauseBtnEl: HTMLButtonElement;
+	let nextBtnEl: HTMLButtonElement;
 	let muteBtnEl: HTMLButtonElement;
 	let fullscreenBtnEl: HTMLButtonElement;
 	let hls: Hls | null = null;
@@ -107,6 +109,15 @@
 		isBuffering = true;
 		const channel = data.channels[i];
 		if (channel) loadChannel(channel.id);
+	}
+
+	// Next/Previous step through the full channel list (not the current
+	// search filter — this is "channel up/down", a different action from
+	// searching), wrapping around at either end.
+	function goToChannel(delta: number) {
+		if (data.channels.length === 0) return;
+		const next = (activeIndex + delta + data.channels.length) % data.channels.length;
+		selectChannel(next);
 	}
 
 	$effect(() => {
@@ -269,15 +280,16 @@
 		return BACK_KEYS.has(e.key) || BACK_KEYCODES.has(e.keyCode) || BACK_KEYCODES.has(e.which);
 	}
 
-	// The play/pause, mute, and fullscreen buttons are real <button>
-	// elements — once one of them actually has focus, native
-	// Enter-activates-focused-button behavior already does the right thing
-	// on its own, so this only needs to (a) let arrow keys move focus
-	// between them and back to the channel list, and (b) get out of the
-	// way on Enter instead of applying the list/fullscreen shortcut logic
-	// meant for when focus is nowhere in particular.
+	// Prev/play-pause/next/mute/fullscreen are all real <button> elements —
+	// once one of them actually has focus, native Enter-activates-focused-
+	// button behavior already does the right thing on its own, so this
+	// only needs to (a) let arrow keys move focus between them and back to
+	// the channel list, and (b) get out of the way on Enter instead of
+	// applying the list/fullscreen shortcut logic meant for when focus is
+	// nowhere in particular. Listed in the same left-to-right order they
+	// appear in the controls row.
 	function controlButtons(): HTMLButtonElement[] {
-		return [playPauseBtnEl, muteBtnEl, fullscreenBtnEl].filter(Boolean);
+		return [prevBtnEl, playPauseBtnEl, nextBtnEl, muteBtnEl, fullscreenBtnEl].filter(Boolean);
 	}
 
 	$effect(() => {
@@ -437,12 +449,18 @@
 				<div class="player-overlay-bottom" class:chrome-hidden={!controlsVisible}>
 					<p class="now-cat">{activeChannel?.category ?? ''}</p>
 					<div class="controls">
+						<button class="ctrl-btn" bind:this={prevBtnEl} aria-label="Previous channel" title="Previous channel" onclick={() => goToChannel(-1)}>
+							<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14l-11-7z"/></svg>
+						</button>
 						<button class="ctrl-btn" bind:this={playPauseBtnEl} aria-label={isPlaying ? 'Pause' : 'Play'} onclick={togglePlay}>
 							{#if isPlaying}
 								<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
 							{:else}
 								<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg>
 							{/if}
+						</button>
+						<button class="ctrl-btn" bind:this={nextBtnEl} aria-label="Next channel" title="Next channel" onclick={() => goToChannel(1)}>
+							<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 5h-2v14h2zM4 5v14l11-7z"/></svg>
 						</button>
 						<button class="ctrl-btn" bind:this={muteBtnEl} aria-label={isMuted ? 'Unmute' : 'Mute'} onclick={toggleMute}>
 							{#if isMuted}
