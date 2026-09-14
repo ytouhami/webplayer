@@ -62,7 +62,7 @@
 </svelte:head>
 
 <div class="page-shell">
-	<AppTopbar title="TV Guide" expiryLabel={data.expiryLabel} activePage="epg" />
+	<AppTopbar title="TV Guide" expiry={data.expiry} activePage="epg" />
 
 	<div class="body-shell">
 		<aside class="channel-sidebar">
@@ -185,7 +185,9 @@
 		border: 0;
 		outline: 0;
 		color: var(--text);
-		font-size: 0.85rem;
+		/* Below 16px, iOS Safari auto-zooms the whole page on focus and
+		   doesn't reliably zoom back out — 16px sidesteps that. */
+		font-size: 16px;
 		font-family: inherit;
 	}
 	.search input::placeholder {
@@ -241,6 +243,9 @@
 		border-left: 2px solid transparent;
 		cursor: pointer;
 		transition: background 0.15s ease, border-color 0.15s ease;
+		/* See live/+page.svelte's identical rule for why. */
+		content-visibility: auto;
+		contain-intrinsic-size: auto 55px;
 	}
 	.channel-item:hover {
 		background: var(--veil-a);

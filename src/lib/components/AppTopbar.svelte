@@ -3,9 +3,41 @@
 
 	let {
 		title,
-		expiryLabel,
+		expiry,
 		activePage
-	}: { title: string; expiryLabel: string; activePage: 'live' | 'epg' } = $props();
+	}: { title: string; expiry: Date | null; activePage: 'live' | 'epg' } = $props();
+
+	// Static date the rest of the time; once inside 72h of expiry, switches
+	// to a live HH:MM:SS countdown with an urgent red background so an
+	// about-to-lapse subscription is impossible to miss.
+	const CRITICAL_MS = 72 * 60 * 60 * 1000;
+	let now = $state(Date.now());
+	let msRemaining = $derived(expiry ? expiry.getTime() - now : null);
+	let isCritical = $derived(msRemaining !== null && msRemaining <= CRITICAL_MS);
+
+	$effect(() => {
+		if (!isCritical) return;
+		const id = setInterval(() => (now = Date.now()), 1000);
+		return () => clearInterval(id);
+	});
+
+	function formatCountdown(ms: number): string {
+		if (ms <= 0) return 'Expired';
+		const totalSeconds = Math.floor(ms / 1000);
+		const hours = Math.floor(totalSeconds / 3600);
+		const minutes = Math.floor((totalSeconds % 3600) / 60);
+		const seconds = totalSeconds % 60;
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+	}
+
+	let expiryLabel = $derived(
+		!expiry
+			? 'Unlimited'
+			: isCritical
+				? formatCountdown(msRemaining ?? 0)
+				: expiry.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+	);
 
 	let theme = $state<'light' | 'dark'>('dark');
 	$effect(() => {
@@ -82,7 +114,7 @@
 
 <header class="topbar">
 	<span class="topbar-title">{title}</span>
-	<span class="expiry">Subscription: <b>{expiryLabel}</b></span>
+	<span class="expiry" class:critical={isCritical}>Subscription: <b>{expiryLabel}</b></span>
 	<div class="topbar-spacer"></div>
 
 	<a href="/live" class="topbar-action" class:active={activePage === 'live'} title="Live TV">
@@ -162,6 +194,31 @@
 	.expiry b {
 		color: var(--text-dim);
 	}
+	.expiry.critical {
+		color: #fff;
+		border-left: 0;
+		padding: 0.3rem 0.7rem;
+		border-radius: 999px;
+		background: var(--live);
+		animation: expiryPulse 1.5s ease-in-out infinite;
+	}
+	.expiry.critical b {
+		color: #fff;
+	}
+	@keyframes expiryPulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.65;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.expiry.critical {
+			animation: none;
+		}
+	}
 	.topbar-spacer {
 		flex: 1;
 	}
@@ -236,9 +293,6 @@
 		.topbar {
 			padding: 0.85rem 1rem;
 			gap: 0.5rem 0.6rem;
-		}
-		.expiry {
-			display: none;
 		}
 		.topbar-action {
 			padding: 0.45rem 0.7rem;

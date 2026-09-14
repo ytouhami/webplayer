@@ -245,7 +245,7 @@
 </svelte:head>
 
 <div class="page-shell">
-	<AppTopbar title="Live TV" expiryLabel={data.expiryLabel} activePage="live" />
+	<AppTopbar title="Live TV" expiry={data.expiry} activePage="live" />
 
 	<div class="body-shell">
 		<aside class="channel-sidebar">
@@ -410,7 +410,12 @@
 		border: 0;
 		outline: 0;
 		color: var(--text);
-		font-size: 0.85rem;
+		/* Below 16px, iOS Safari auto-zooms the whole page on focus and
+		   doesn't reliably zoom back out — that's what actually caused the
+		   reported horizontal scroll/overflow on phones, not a layout
+		   overflow (measured: none at 280–414px, including pathological
+		   content). 16px sidesteps the zoom trigger entirely. */
+		font-size: 16px;
 		font-family: inherit;
 	}
 	.search input::placeholder {
@@ -466,6 +471,15 @@
 		border-left: 2px solid transparent;
 		cursor: pointer;
 		transition: background 0.15s ease, border-color 0.15s ease;
+		/* A real provider's channel list can run into the tens of
+		   thousands of rows — skips layout/paint for rows currently off
+		   screen instead of keeping the whole list composited, which is
+		   what let a fast fling outrun rendering and show blank content
+		   until it caught up. contain-intrinsic-size is this row's actual
+		   rendered height, so skipped rows still reserve correct scroll
+		   space and nothing jumps. */
+		content-visibility: auto;
+		contain-intrinsic-size: auto 55px;
 	}
 	.channel-item:hover {
 		background: var(--veil-a);
