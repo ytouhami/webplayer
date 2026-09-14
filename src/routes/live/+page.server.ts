@@ -12,8 +12,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		getLiveChannels(locals.userSession),
 		getAccountExpiry(locals.userSession)
 	]);
+	const expiryLabel = expiry
+		? expiry.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+		: 'Unlimited';
 
-	return { channels, expiry };
+	return { channels, expiryLabel };
 };
 
 export const actions: Actions = {

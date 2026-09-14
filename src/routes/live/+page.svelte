@@ -245,7 +245,7 @@
 </svelte:head>
 
 <div class="page-shell">
-	<AppTopbar title="Live TV" expiry={data.expiry} activePage="live" />
+	<AppTopbar title="Live TV" expiryLabel={data.expiryLabel} activePage="live" />
 
 	<div class="body-shell">
 		<aside class="channel-sidebar">

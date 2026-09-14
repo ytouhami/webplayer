@@ -62,7 +62,7 @@
 </svelte:head>
 
 <div class="page-shell">
-	<AppTopbar title="TV Guide" expiry={data.expiry} activePage="epg" />
+	<AppTopbar title="TV Guide" expiryLabel={data.expiryLabel} activePage="epg" />
 
 	<div class="body-shell">
 		<aside class="channel-sidebar">
