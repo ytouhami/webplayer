@@ -38,5 +38,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 		throw redirect(303, '/admin/login');
 	}
 
-	return resolve(event);
+	const response = await resolve(event);
+	// Every page here (including its redirects) is driven entirely by the
+	// session cookie, so none of it is ever safe to cache — a stale cached
+	// redirect (e.g. the pre-logout "you have a session, go to /live") can
+	// collide with the server's fresh redirect for the current cookie and
+	// bounce the browser between /login and /live forever. Now that CSR is
+	// disabled site-wide, every navigation is a real HTTP request subject to
+	// the browser's cache, so this has to be explicit.
+	response.headers.set('cache-control', 'no-store');
+	return response;
 };
