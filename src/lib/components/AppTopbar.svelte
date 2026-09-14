@@ -15,8 +15,11 @@
 	let msRemaining = $derived(expiry ? expiry.getTime() - now : null);
 	let isCritical = $derived(msRemaining !== null && msRemaining <= CRITICAL_MS);
 
+	// No reactive reads here on purpose — this must run exactly once, ever.
+	// Reading isCritical (which is derived from `now`, which this same
+	// interval writes to) made the effect re-subscribe on every tick,
+	// compounding into a runaway loop that froze the tab within seconds.
 	$effect(() => {
-		if (!isCritical) return;
 		const id = setInterval(() => (now = Date.now()), 1000);
 		return () => clearInterval(id);
 	});
@@ -114,7 +117,7 @@
 
 <header class="topbar">
 	<span class="topbar-title">{title}</span>
-	<span class="expiry" class:critical={isCritical}>Subscription: <b>{expiryLabel}</b></span>
+	<span class="expiry" class:critical={isCritical}>Subscription ends in: <b>{expiryLabel}</b></span>
 	<div class="topbar-spacer"></div>
 
 	<a href="/live" class="topbar-action" class:active={activePage === 'live'} title="Live TV">
