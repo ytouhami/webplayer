@@ -85,9 +85,6 @@
 					<span class="ch-number-badge" id="ch-number-badge">CH. 01</span>
 				</div>
 
-				<button class="player-center" id="player-center-btn" aria-label="Play">
-					<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg>
-				</button>
 				<div class="signal-eq">
 					{#each eqBars as bar}
 						<span class="bar" style="height:{bar.height}rem; animation-duration:{bar.duration}s; animation-delay:{bar.delay}s;"></span>
@@ -331,32 +328,6 @@
 		object-fit: contain;
 		will-change: transform;
 	}
-	.player-center {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		width: 4.5rem;
-		height: 4.5rem;
-		border-radius: 50%;
-		background: rgba(255, 255, 255, 0.14);
-		backdrop-filter: blur(6px);
-		border: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: #fff;
-		cursor: pointer;
-		transition: transform 0.15s ease;
-	}
-	.player-center:hover {
-		transform: translate(-50%, -50%) scale(1.06);
-	}
-	.player-center svg {
-		width: 1.7rem;
-		height: 1.7rem;
-	}
-
 	.signal-eq {
 		position: absolute;
 		top: 50%;
@@ -372,10 +343,6 @@
 	}
 	.player-shell.is-buffering .signal-eq {
 		opacity: 0.5;
-	}
-	.player-shell.is-playing .player-center {
-		opacity: 0;
-		pointer-events: none;
 	}
 	.signal-eq .bar {
 		width: 4px;

@@ -29,7 +29,6 @@
 	var nowCatEl = document.getElementById('now-cat');
 	var playerErrorEl = document.getElementById('player-error');
 	var playerErrorTextEl = document.getElementById('player-error-text');
-	var playerCenterBtnEl = document.getElementById('player-center-btn');
 
 	if (!videoEl || !playerShellEl || !channelListEl) return;
 
@@ -191,11 +190,6 @@
 		if (v) addClass(playerShellEl, 'is-buffering');
 		else removeClass(playerShellEl, 'is-buffering');
 	}
-	function setPlayingClass(v) {
-		if (v) addClass(playerShellEl, 'is-playing');
-		else removeClass(playerShellEl, 'is-playing');
-	}
-
 	function selectChannel(index) {
 		var item = items[index];
 		if (!item) return;
@@ -333,10 +327,6 @@
 	if (playPauseBtnEl) playPauseBtnEl.addEventListener('click', togglePlay);
 	if (muteBtnEl) muteBtnEl.addEventListener('click', toggleMute);
 	if (fullscreenBtnEl) fullscreenBtnEl.addEventListener('click', toggleFullscreen);
-	if (playerCenterBtnEl) playerCenterBtnEl.addEventListener('click', function () {
-		var p = videoEl.play();
-		if (p && p.catch) p.catch(function () {});
-	});
 	if (volumeSliderEl) {
 		volumeSliderEl.addEventListener('input', function () {
 			handleVolumeInput(Number(volumeSliderEl.value));
@@ -357,12 +347,10 @@
 
 	videoEl.addEventListener('play', function () {
 		isPlaying = true;
-		setPlayingClass(true);
 		updatePlayPauseIcon();
 	});
 	videoEl.addEventListener('pause', function () {
 		isPlaying = false;
-		setPlayingClass(false);
 		updatePlayPauseIcon();
 	});
 	videoEl.addEventListener('playing', function () {
