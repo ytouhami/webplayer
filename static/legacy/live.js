@@ -367,6 +367,13 @@
 	});
 	videoEl.addEventListener('playing', function () {
 		setBuffering(false);
+		// 'play' only means "not paused" and can fail to fire on MSE-backed
+		// live HLS when a channel switch interrupts the previous play()
+		// call — 'playing' is the reliable signal that video is genuinely
+		// rendering, so the center button must hide here too.
+		isPlaying = true;
+		setPlayingClass(true);
+		updatePlayPauseIcon();
 	});
 	videoEl.addEventListener('waiting', function () {
 		setBuffering(true);
