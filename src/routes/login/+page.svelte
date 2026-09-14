@@ -1,28 +1,11 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 
+	// csr is disabled for this route (see +page.ts). The form below is a
+	// plain <form method="POST"> that works with zero JS; only the
+	// theme-toggle and show/hide-password buttons need JS, handled by
+	// static/legacy/login.js as classic ES5.
 	let { data, form }: { data: PageData; form: ActionData } = $props();
-
-	let theme = $state<'light' | 'dark'>('dark');
-	let showPassword = $state(false);
-	let submitting = $state(false);
-	// Server-side validation in settings.ts already filters out anything
-	// that isn't a complete, correctly-padded image data URL, but this is
-	// a last-resort backstop so a broken image icon can never show
-	// regardless — fall back to the default mark the instant the browser
-	// itself fails to decode whatever's in logoUrl.
-	let logoFailed = $state(false);
-
-	$effect(() => {
-		theme = (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') ?? 'dark';
-	});
-
-	function toggleTheme() {
-		theme = theme === 'light' ? 'dark' : 'light';
-		document.documentElement.setAttribute('data-theme', theme);
-		localStorage.setItem('pulse-theme', theme);
-	}
 </script>
 
 <svelte:head>
@@ -33,35 +16,34 @@
 		href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
 		rel="stylesheet"
 	/>
+	<script src="/legacy/login.js" defer></script>
 </svelte:head>
 
 <div class="auth-shell">
 <button
 	class="theme-toggle"
-	aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-	onclick={toggleTheme}
+	id="theme-toggle-btn"
+	aria-label="Switch to light mode"
 >
-	{#if theme === 'light'}
-		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>
-	{:else}
-		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
-	{/if}
+	<svg id="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+	<svg id="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>
 </button>
 
 <form
 	class="card"
 	method="POST"
-	use:enhance={() => {
-		submitting = true;
-		return async ({ update }) => {
-			await update();
-			submitting = false;
-		};
-	}}
+	id="login-form"
 >
 	<div class="brand">
-		{#if data.logoUrl && !logoFailed}
-			<img src={data.logoUrl} alt="Logo" class="brand-logo" onerror={() => (logoFailed = true)} />
+		{#if data.logoUrl}
+			<img id="brand-logo-img" src={data.logoUrl} alt="Logo" class="brand-logo" />
+			<svg style="display:none" viewBox="0 0 64 64" fill="none">
+				<rect x="1.5" y="1.5" width="61" height="61" rx="18" fill="#0C0F14" stroke="#4FE3D3" stroke-opacity="0.35" stroke-width="1.5"/>
+				<rect x="13" y="36" width="7" height="12" rx="3" fill="#4FE3D3"/>
+				<rect x="24" y="28" width="7" height="20" rx="3" fill="#4FE3D3"/>
+				<rect x="35" y="20" width="7" height="28" rx="3" fill="#4FE3D3"/>
+				<rect x="46" y="12" width="7" height="36" rx="3" fill="#4FE3D3"/>
+			</svg>
 		{:else}
 			<svg viewBox="0 0 64 64" fill="none">
 				<rect x="1.5" y="1.5" width="61" height="61" rx="18" fill="#0C0F14" stroke="#4FE3D3" stroke-opacity="0.35" stroke-width="1.5"/>
@@ -72,7 +54,6 @@
 			</svg>
 		{/if}
 		<b>{data.appName}</b>
-		<span>LIVE&nbsp;&middot;&nbsp;IPTV PLAYER</span>
 	</div>
 
 	<h1 class="card-title">Tune In</h1>
@@ -95,7 +76,8 @@
 		<div class="field-control">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9" rx="2.2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>
 			<input
-				type={showPassword ? 'text' : 'password'}
+				id="password-input"
+				type="password"
 				name="password"
 				autocomplete="current-password"
 				placeholder="Enter your password"
@@ -104,33 +86,21 @@
 			<button
 				type="button"
 				class="toggle-pass"
-				aria-label={showPassword ? 'Hide password' : 'Show password'}
-				onclick={() => (showPassword = !showPassword)}
+				id="toggle-pass-btn"
+				aria-label="Show password"
 			>
-				{#if showPassword}
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.7c.45-.1.9-.15 1.4-.15 6 0 9.5 6.5 9.5 6.5a13.7 13.7 0 0 1-3.15 3.9M6.5 6.7A13.6 13.6 0 0 0 2.5 12S6 18.5 12 18.5c1.4 0 2.65-.35 3.75-.9"/><path d="M9.6 10.2a2.8 2.8 0 0 0 3.9 3.9"/></svg>
-				{:else}
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/></svg>
-				{/if}
+				<svg id="pass-icon-hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/></svg>
+				<svg id="pass-icon-shown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M3 3l18 18"/><path d="M10.6 5.7c.45-.1.9-.15 1.4-.15 6 0 9.5 6.5 9.5 6.5a13.7 13.7 0 0 1-3.15 3.9M6.5 6.7A13.6 13.6 0 0 0 2.5 12S6 18.5 12 18.5c1.4 0 2.65-.35 3.75-.9"/><path d="M9.6 10.2a2.8 2.8 0 0 0 3.9 3.9"/></svg>
 			</button>
 		</div>
 	</label>
 
-	<div class="field-row">
-		<label class="remember">
-			<input type="checkbox" name="remember" />
-			<span class="checkbox-box" aria-hidden="true"></span>
-			Remember me
-		</label>
-		<a href="#" class="forgot">Forgot password?</a>
-	</div>
-
-	<button type="submit" class="submit-btn" class:is-loading={submitting} disabled={submitting}>
-		<span class="btn-label">{submitting ? 'Tuning in…' : 'Start Watching'}</span>
+	<button type="submit" class="submit-btn" id="submit-btn">
+		<span class="btn-label" id="submit-btn-label">Start Watching</span>
 		<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4.5v15l13-7.5-13-7.5Z"/></svg>
 	</button>
 
-	<p class="card-footnote">Need an account? <a href="#">Contact your IPTV provider</a>.</p>
+	<p class="card-footnote">Need an account? <a href="https://drogontv.co/contact-drogon-tv" target="_blank" rel="noopener noreferrer">Contact your IPTV provider</a>.</p>
 </form>
 </div>
 
@@ -228,12 +198,6 @@
 		font-weight: 700;
 		font-size: 1.2rem;
 	}
-	.brand span {
-		font-family: var(--font-mono);
-		font-size: 0.62rem;
-		letter-spacing: 0.14em;
-		color: var(--text-faint);
-	}
 
 	.card-title {
 		text-align: center;
@@ -330,71 +294,9 @@
 		height: 1.05rem;
 	}
 
-	.field-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 1.4rem;
-	}
-	.remember {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.82rem;
-		color: var(--text-dim);
-		cursor: pointer;
-		user-select: none;
-	}
-	.remember input {
-		position: absolute;
-		opacity: 0;
-		width: 0;
-		height: 0;
-	}
-	.checkbox-box {
-		width: 16px;
-		height: 16px;
-		border: 1.5px solid var(--border-strong);
-		border-radius: 5px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-	}
-	.checkbox-box::after {
-		content: '';
-		width: 9px;
-		height: 6px;
-		border-left: 2px solid var(--accent-contrast);
-		border-bottom: 2px solid var(--accent-contrast);
-		transform: rotate(-45deg) scale(0);
-		transition: transform 0.12s ease;
-		margin-top: -2px;
-	}
-	.remember input:checked + .checkbox-box {
-		background: var(--accent);
-		border-color: var(--accent);
-	}
-	.remember input:checked + .checkbox-box::after {
-		transform: rotate(-45deg) scale(1);
-	}
-	.remember input:focus-visible + .checkbox-box {
-		outline: 2px solid var(--accent-ui);
-		outline-offset: 2px;
-	}
-	.forgot {
-		font-size: 0.82rem;
-		color: var(--text-dim);
-		text-decoration: none;
-		border-bottom: 1px solid transparent;
-	}
-	.forgot:hover {
-		color: var(--accent-ui);
-		border-color: var(--accent-ui);
-	}
-
 	.submit-btn {
 		width: 100%;
+		margin-top: 0.3rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
