@@ -56,7 +56,6 @@
 		<b>{data.appName}</b>
 	</div>
 
-	<h1 class="card-title">Tune In</h1>
 	<p class="card-sub">Sign in to start streaming your channels.</p>
 
 	{#if form?.error}
