@@ -367,13 +367,6 @@
 	});
 	videoEl.addEventListener('playing', function () {
 		setBuffering(false);
-		// 'play' only means "not paused" and can fire before frames are
-		// actually rendering on MSE-backed live HLS — 'playing' is the
-		// reliable signal that video is genuinely on screen, so the center
-		// button must hide here too, not just on 'play'.
-		isPlaying = true;
-		setPlayingClass(true);
-		updatePlayPauseIcon();
 	});
 	videoEl.addEventListener('waiting', function () {
 		setBuffering(true);
