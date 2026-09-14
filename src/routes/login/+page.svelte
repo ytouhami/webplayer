@@ -132,16 +132,18 @@
 		min-height: 100dvh;
 		display: flex;
 		align-items: center;
+		/* "safe" keeps the card from being clipped off the top when the
+		   on-screen keyboard shrinks the viewport too much for it to fit
+		   centered — it falls back to start-aligned only in that case,
+		   otherwise the card stays centered. Declared after the plain
+		   `center` above so browsers without "safe" support keep that. */
+		align-items: safe center;
 		justify-content: center;
 		padding: 2rem;
 	}
 
 	@media (max-width: 480px) {
 		.auth-shell {
-			/* Centered layout can trap the submit button below the fold when
-			   the on-screen keyboard shrinks the visible viewport — top-align
-			   instead so the page scrolls normally to reach it. */
-			align-items: flex-start;
 			padding: 2.5rem 1.25rem;
 		}
 	}
