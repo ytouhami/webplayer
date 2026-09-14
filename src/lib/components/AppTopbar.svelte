@@ -141,11 +141,19 @@
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l4 3 4-3"/><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="2.6"/></svg>
 		Live TV
 	</a>
-	<a href="/epg" class="topbar-action" class:active={activePage === 'epg'} title="TV Guide (Yellow)" bind:this={tvGuideLinkEl}>
+	<a
+		id="tvguide-link"
+		href="/epg"
+		class="topbar-action"
+		class:active={activePage === 'epg'}
+		title="TV Guide (Yellow)"
+		bind:this={tvGuideLinkEl}
+	>
 		<span class="remote-dot remote-dot-yellow"></span>
 		TV Guide
 	</a>
 	<form
+		id="refresh-form"
 		method="POST"
 		action="?/refresh"
 		bind:this={refreshFormEl}
@@ -162,19 +170,20 @@
 			{refreshing ? 'Refreshing…' : 'Refresh'}
 		</button>
 	</form>
-	<form method="POST" action="?/logout" bind:this={logoutFormEl}>
+	<form id="logout-form" method="POST" action="?/logout" bind:this={logoutFormEl}>
 		<button class="topbar-action" type="submit" title="Log out (Red)">
 			<span class="remote-dot remote-dot-red"></span>
 			Logout
 		</button>
 	</form>
 	<button
+		id="theme-toggle-btn"
 		class="topbar-action"
 		title={(theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode') + ' (Blue)'}
 		onclick={toggleTheme}
 	>
 		<span class="remote-dot remote-dot-blue"></span>
-		{theme === 'light' ? 'Dark' : 'Light'}
+		<span id="theme-toggle-label">{theme === 'light' ? 'Dark' : 'Light'}</span>
 	</button>
 	{#if showInstallButton}
 		<div class="install-wrap">
