@@ -140,6 +140,7 @@
 
 	@media (max-width: 480px) {
 		.auth-shell {
+			align-items: flex-start;
 			padding: 2.5rem 1.25rem;
 		}
 	}
