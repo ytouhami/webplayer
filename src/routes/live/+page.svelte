@@ -48,7 +48,6 @@
 					<li
 						class="channel-item"
 						class:active={i === 0}
-						class:focused={i === 0}
 						data-channel-id={channel.id}
 						data-name={channel.name.toLowerCase()}
 						data-category={channel.category ?? ''}
@@ -237,10 +236,6 @@
 	.channel-item.active {
 		background: var(--veil-a);
 		border-left-color: var(--accent-ui);
-	}
-	.channel-item.focused {
-		outline: 2px solid var(--accent-ui);
-		outline-offset: -2px;
 	}
 	.ch-badge {
 		width: 2.1rem;

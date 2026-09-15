@@ -55,7 +55,6 @@
 	if (items.length === 0) return;
 
 	var activeIndex = 0;
-	var focusedIndex = 0;
 	var isPlaying = false;
 	var isBuffering = true;
 	var isMuted = true;
@@ -68,21 +67,11 @@
 		return item.getAttribute('data-channel-id');
 	}
 
-	function visibleItems() {
-		var out = [];
-		for (var i = 0; i < items.length; i++) {
-			if (items[i].style.display !== 'none') out.push(items[i]);
-		}
-		return out;
-	}
-
 	function setActiveClasses() {
 		for (var i = 0; i < items.length; i++) {
 			var el = items[i];
 			if (i === activeIndex) addClass(el, 'active');
 			else removeClass(el, 'active');
-			if (i === focusedIndex) addClass(el, 'focused');
-			else removeClass(el, 'focused');
 		}
 	}
 
@@ -101,16 +90,6 @@
 	}
 	function hasClass(el, name) {
 		return (' ' + el.className + ' ').indexOf(' ' + name + ' ') !== -1;
-	}
-
-	function scrollIntoView(item) {
-		if (item.scrollIntoView) {
-			try {
-				item.scrollIntoView({ block: 'nearest' });
-			} catch (e) {
-				item.scrollIntoView();
-			}
-		}
 	}
 
 	function loadChannel(channelId) {
@@ -194,7 +173,6 @@
 		var item = items[index];
 		if (!item) return;
 		activeIndex = index;
-		focusedIndex = index;
 		setBuffering(true);
 		setActiveClasses();
 		updateNowPlayingUI(item, index);
@@ -220,18 +198,6 @@
 		}
 		if (listCountEl) listCountEl.textContent = shown + ' ' + (shown === 1 ? 'CHANNEL' : 'CHANNELS');
 		if (noResultsEl) noResultsEl.style.display = shown === 0 ? 'block' : 'none';
-		// Keep the focus highlight on a still-visible item.
-		var vis = visibleItems();
-		if (vis.length > 0) {
-			var stillVisible = false;
-			for (var j = 0; j < vis.length; j++) {
-				if (vis[j] === items[focusedIndex]) stillVisible = true;
-			}
-			if (!stillVisible) {
-				focusedIndex = items.indexOf ? items.indexOf(vis[0]) : indexOfItem(vis[0]);
-				setActiveClasses();
-			}
-		}
 	}
 	function indexOfItem(item) {
 		for (var i = 0; i < items.length; i++) {
@@ -375,92 +341,6 @@
 	playerShellEl.addEventListener('pointerdown', showControls);
 	playerShellEl.addEventListener('mousemove', showControls);
 	playerShellEl.addEventListener('touchstart', showControls);
-
-	// --- remote / keyboard navigation ---
-	function moveFocus(delta) {
-		var vis = visibleItems();
-		if (vis.length === 0) return;
-		var pos = -1;
-		for (var i = 0; i < vis.length; i++) {
-			if (indexOfItem(vis[i]) === focusedIndex) pos = i;
-		}
-		var nextPos = pos === -1 ? 0 : Math.min(Math.max(pos + delta, 0), vis.length - 1);
-		focusedIndex = indexOfItem(vis[nextPos]);
-		setActiveClasses();
-		scrollIntoView(vis[nextPos]);
-	}
-
-	var BACK_KEYS = { Backspace: true, Escape: true, GoBack: true, XF86Back: true, Back: true };
-	var BACK_KEYCODES = { 461: true, 10009: true, 27: true, 8: true };
-	function isBackKey(e) {
-		return Boolean(BACK_KEYS[e.key] || BACK_KEYCODES[e.keyCode] || BACK_KEYCODES[e.which]);
-	}
-
-	function controlButtons() {
-		var list = [prevBtnEl, playPauseBtnEl, nextBtnEl, muteBtnEl, fullscreenBtnEl];
-		var out = [];
-		for (var i = 0; i < list.length; i++) {
-			if (list[i]) out.push(list[i]);
-		}
-		return out;
-	}
-
-	document.addEventListener('keydown', function (e) {
-		var active = document.activeElement;
-		if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
-
-		showControls();
-
-		if (e.key === 'MediaPlayPause' || e.keyCode === 179) {
-			e.preventDefault();
-			togglePlay();
-			return;
-		}
-
-		var buttons = controlButtons();
-		var controlIdx = -1;
-		for (var i = 0; i < buttons.length; i++) {
-			if (buttons[i] === active) controlIdx = i;
-		}
-		var onControlButton = controlIdx !== -1;
-
-		if (e.key === 'ArrowLeft') {
-			if (onControlButton) {
-				e.preventDefault();
-				if (controlIdx > 0) buttons[controlIdx - 1].focus();
-				else if (active && active.blur) active.blur();
-			}
-		} else if (e.key === 'ArrowRight') {
-			if (onControlButton) {
-				e.preventDefault();
-				if (controlIdx < buttons.length - 1) buttons[controlIdx + 1].focus();
-			} else {
-				e.preventDefault();
-				if (buttons[0]) buttons[0].focus();
-			}
-		} else if (e.key === 'ArrowUp') {
-			if (!onControlButton) {
-				e.preventDefault();
-				moveFocus(-1);
-			}
-		} else if (e.key === 'ArrowDown') {
-			if (!onControlButton) {
-				e.preventDefault();
-				moveFocus(1);
-			}
-		} else if (e.key === 'Enter') {
-			if (onControlButton) return;
-			e.preventDefault();
-			if (isPlayerFullscreen()) togglePlay();
-			else if (focusedIndex === activeIndex) enterFullscreen();
-			else selectChannel(focusedIndex);
-		} else if (isBackKey(e)) {
-			if (isPlayerFullscreen()) {
-				e.preventDefault();
-				exitFullscreen();
-			}
-		}
-	});
 
 	// --- boot ---
 	setActiveClasses();
