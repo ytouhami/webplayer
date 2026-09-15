@@ -118,10 +118,6 @@
 
 	@media (max-width: 480px) {
 		.auth-shell {
-			/* Centered layout can trap the submit button below the fold when
-			   the on-screen keyboard shrinks the visible viewport — top-align
-			   instead so the page scrolls normally to reach it. */
-			align-items: flex-start;
 			padding: 2.5rem 1.25rem;
 		}
 	}
