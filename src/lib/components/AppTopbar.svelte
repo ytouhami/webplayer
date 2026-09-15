@@ -4,8 +4,10 @@
 	let {
 		title,
 		expiryLabel,
+		expiryCritical = false,
 		activePage
-	}: { title: string; expiryLabel: string; activePage: 'live' | 'epg' } = $props();
+	}: { title: string; expiryLabel: string; expiryCritical?: boolean; activePage: 'live' | 'epg' } =
+		$props();
 
 	let theme = $state<'light' | 'dark'>('dark');
 	$effect(() => {
@@ -84,7 +86,7 @@
 
 <header class="topbar">
 	<span class="topbar-title">{title}</span>
-	<span class="expiry">Subscription: <b>{expiryLabel}</b></span>
+	<span class="expiry" class:critical={expiryCritical}>Subscription: <b>{expiryLabel}</b></span>
 	<div class="topbar-spacer"></div>
 
 	<a href="/live" class="topbar-action" class:active={activePage === 'live'} title="Live TV">
@@ -171,6 +173,16 @@
 	.expiry b {
 		color: var(--text-dim);
 	}
+	.expiry.critical {
+		color: #fff;
+		border-left: 0;
+		padding: 0.3rem 0.7rem;
+		border-radius: 999px;
+		background: var(--live);
+	}
+	.expiry.critical b {
+		color: #fff;
+	}
 	.topbar-spacer {
 		flex: 1;
 	}
@@ -245,9 +257,6 @@
 		.topbar {
 			padding: 0.85rem 1rem;
 			gap: 0.5rem 0.6rem;
-		}
-		.expiry {
-			display: none;
 		}
 		.topbar-action {
 			padding: 0.45rem 0.7rem;

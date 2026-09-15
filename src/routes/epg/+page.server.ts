@@ -15,8 +15,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const expiryLabel = expiry
 		? expiry.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 		: 'Unlimited';
+	const CRITICAL_MS = 72 * 60 * 60 * 1000;
+	const expiryCritical = expiry ? expiry.getTime() - Date.now() <= CRITICAL_MS : false;
 
-	return { channels, expiryLabel };
+	return { channels, expiryLabel, expiryCritical };
 };
 
 export const actions: Actions = {
