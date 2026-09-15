@@ -2,53 +2,11 @@
 	import AppTopbar from '$lib/components/AppTopbar.svelte';
 	import type { PageData } from './$types';
 
+	// csr is disabled for this route (see +page.ts) — the search filter and
+	// per-channel EPG fetch are implemented in static/legacy/epg.js instead,
+	// loaded as a classic script below. This block only produces the
+	// initial server-rendered markup.
 	let { data }: { data: PageData } = $props();
-
-	let searchQuery = $state('');
-	let debouncedQuery = $state('');
-	$effect(() => {
-		const q = searchQuery;
-		const timer = setTimeout(() => (debouncedQuery = q), 150);
-		return () => clearTimeout(timer);
-	});
-
-	let brokenIcons = $state(new Set<number>());
-	function handleIconError(id: number) {
-		brokenIcons = new Set(brokenIcons).add(id);
-	}
-
-	function matches(name: string, query: string) {
-		return !query.trim() || name.toLowerCase().includes(query.trim().toLowerCase());
-	}
-	let shownCount = $derived(data.channels.filter((c) => matches(c.name, debouncedQuery)).length);
-
-	let activeIndex = $state(-1);
-	let activeChannel = $derived(activeIndex >= 0 ? data.channels[activeIndex] : undefined);
-
-	type EpgEntry = { title: string; description: string; startLabel: string; endLabel: string };
-	let epgEntries = $state<EpgEntry[]>([]);
-	let epgLoading = $state(false);
-	let epgRequestId = 0;
-
-	async function selectChannel(i: number) {
-		activeIndex = i;
-		const channel = data.channels[i];
-		if (!channel) return;
-
-		const requestId = ++epgRequestId;
-		epgLoading = true;
-		try {
-			const res = await fetch(`/api/epg/${channel.id}`);
-			const body = res.ok ? await res.json() : { listings: [] };
-			if (requestId === epgRequestId) {
-				epgEntries = Array.isArray(body.listings) ? body.listings : [];
-			}
-		} catch {
-			if (requestId === epgRequestId) epgEntries = [];
-		} finally {
-			if (requestId === epgRequestId) epgLoading = false;
-		}
-	}
 </script>
 
 <svelte:head>
@@ -59,6 +17,8 @@
 		href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
 		rel="stylesheet"
 	/>
+	<script src="/legacy/topbar.js" defer></script>
+	<script src="/legacy/epg.js" defer></script>
 </svelte:head>
 
 <div class="page-shell">
@@ -68,64 +28,40 @@
 		<aside class="channel-sidebar">
 			<label class="search">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-				<input type="text" placeholder="Search channels" bind:value={searchQuery} />
+				<input id="search-input" type="text" placeholder="Search channels" />
 			</label>
-			<span class="list-count">{shownCount} {shownCount === 1 ? 'CHANNEL' : 'CHANNELS'}</span>
-			<ul class="channel-list">
+			<span class="list-count" id="list-count">{data.channels.length} {data.channels.length === 1 ? 'CHANNEL' : 'CHANNELS'}</span>
+			<ul class="channel-list" id="channel-list">
 				{#each data.channels as channel, i (channel.id)}
-					{#if matches(channel.name, debouncedQuery)}
-						<li class="channel-item" class:active={i === activeIndex} onclick={() => selectChannel(i)}>
-							{#if channel.icon && !brokenIcons.has(channel.id)}
-								<img
-									class="ch-badge ch-icon"
-									src={channel.icon}
-									alt=""
-									loading="lazy"
-									onerror={() => handleIconError(channel.id)}
-								/>
-							{:else}
-								<div class="ch-badge" style="background:linear-gradient(135deg,{channel.colorA},{channel.colorB})">{channel.badge}</div>
-							{/if}
-							<div class="ch-info">
-								<h3>{channel.name}</h3>
-								<span class="ch-meta">CH. {String(i + 1).padStart(2, '0')}</span>
-							</div>
-						</li>
-					{/if}
+					<li
+						class="channel-item"
+						data-channel-id={channel.id}
+						data-name={channel.name.toLowerCase()}
+						data-category={channel.category}
+					>
+						{#if channel.icon}
+							<img class="ch-badge ch-icon" src={channel.icon} alt="" loading="lazy" />
+							<div class="ch-badge" style="display:none; background:linear-gradient(135deg,{channel.colorA},{channel.colorB})">{channel.badge}</div>
+						{:else}
+							<div class="ch-badge" style="background:linear-gradient(135deg,{channel.colorA},{channel.colorB})">{channel.badge}</div>
+						{/if}
+						<div class="ch-info">
+							<h3>{channel.name}</h3>
+							<span class="ch-meta">CH. {String(i + 1).padStart(2, '0')}</span>
+						</div>
+					</li>
 				{/each}
 			</ul>
-			{#if shownCount === 0}
-				<p class="no-results">No channels match your search.</p>
-			{/if}
+			<p class="no-results" id="no-results" style="display:none">No channels match your search.</p>
 		</aside>
 
-		<main class="epg-main">
-			{#if !activeChannel}
-				<p class="epg-placeholder">Select a channel to view its programming.</p>
-			{:else}
-				<div class="epg-header">
-					<h2>{activeChannel.name}</h2>
-					<span class="epg-category">{activeChannel.category}</span>
-				</div>
-
-				{#if epgLoading}
-					<p class="epg-placeholder">Loading…</p>
-				{:else if epgEntries.length === 0}
-					<p class="epg-placeholder">No planning available.</p>
-				{:else}
-					<ul class="epg-list">
-						{#each epgEntries as entry}
-							<li class="epg-entry">
-								<span class="epg-time">{entry.startLabel}{entry.endLabel ? ` – ${entry.endLabel}` : ''}</span>
-								<h3>{entry.title}</h3>
-								{#if entry.description}
-									<p>{entry.description}</p>
-								{/if}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			{/if}
+		<main class="epg-main" id="epg-main">
+			<p class="epg-placeholder" id="epg-placeholder">Select a channel to view its programming.</p>
+			<div class="epg-header" id="epg-header" style="display:none">
+				<h2 id="epg-channel-name"></h2>
+				<span class="epg-category" id="epg-channel-category"></span>
+			</div>
+			<ul class="epg-list" id="epg-list" style="display:none"></ul>
 		</main>
 	</div>
 </div>
@@ -185,9 +121,7 @@
 		border: 0;
 		outline: 0;
 		color: var(--text);
-		/* Below 16px, iOS Safari auto-zooms the whole page on focus and
-		   doesn't reliably zoom back out — 16px sidesteps that. */
-		font-size: 16px;
+		font-size: 0.85rem;
 		font-family: inherit;
 	}
 	.search input::placeholder {
@@ -243,9 +177,6 @@
 		border-left: 2px solid transparent;
 		cursor: pointer;
 		transition: background 0.15s ease, border-color 0.15s ease;
-		/* See live/+page.svelte's identical rule for why. */
-		content-visibility: auto;
-		contain-intrinsic-size: auto 55px;
 	}
 	.channel-item:hover {
 		background: var(--veil-a);

@@ -5,6 +5,39 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
 		<script>
+			// Classic (non-module) script, ES5 only, deliberately kept
+			// this defensive: it exists to report basic engine capability
+			// facts back to the server on TVs where the module bundle
+			// itself never runs and there's no remote-debug access to see
+			// why. It must not depend on anything that could itself be
+			// unsupported on those same engines.
+			(function () {
+				try {
+					var scriptEl = document.createElement('script');
+					var facts = {
+						p: location.pathname,
+						m: 'noModule' in scriptEl ? '1' : '0',
+						pm: window.Promise ? '1' : '0',
+						ft: window.fetch ? '1' : '0',
+						ms: window.MediaSource ? '1' : '0',
+						sy: window.Symbol ? '1' : '0',
+						af: Array.from ? '1' : '0',
+						w: (screen && screen.width) || '',
+						h: (screen && screen.height) || '',
+						ua: navigator.userAgent
+					};
+					var qs = [];
+					for (var k in facts) {
+						if (facts.hasOwnProperty(k)) {
+							qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(facts[k]));
+						}
+					}
+					var img = new Image();
+					img.src = '/api/tv-probe?' + qs.join('&');
+				} catch (e) {}
+			})();
+		</script>
+		<script>
 			(function () {
 				try {
 					var saved = localStorage.getItem('pulse-theme');
