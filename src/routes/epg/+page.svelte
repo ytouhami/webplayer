@@ -22,7 +22,7 @@
 </svelte:head>
 
 <div class="page-shell">
-	<AppTopbar title="TV Guide" expiryLabel={data.expiryLabel} expiryCritical={data.expiryCritical} activePage="epg" />
+	<AppTopbar title="TV Guide" expiryLabel={data.expiryLabel} activePage="epg" />
 
 	<div class="body-shell">
 		<aside class="channel-sidebar">
@@ -121,9 +121,7 @@
 		border: 0;
 		outline: 0;
 		color: var(--text);
-		/* Below 16px, iOS Safari auto-zooms the whole page on focus and
-		   doesn't reliably zoom back out — 16px sidesteps that. */
-		font-size: 16px;
+		font-size: 0.85rem;
 		font-family: inherit;
 	}
 	.search input::placeholder {

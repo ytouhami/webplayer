@@ -34,7 +34,7 @@
 </svelte:head>
 
 <div class="page-shell">
-	<AppTopbar title="Live TV" expiryLabel={data.expiryLabel} expiryCritical={data.expiryCritical} activePage="live" />
+	<AppTopbar title="Live TV" expiryLabel={data.expiryLabel} activePage="live" />
 
 	<div class="body-shell">
 		<aside class="channel-sidebar">
@@ -178,12 +178,7 @@
 		border: 0;
 		outline: 0;
 		color: var(--text);
-		/* Below 16px, iOS Safari auto-zooms the whole page on focus and
-		   doesn't reliably zoom back out — that's what actually caused the
-		   reported horizontal scroll/overflow on phones, not a layout
-		   overflow (measured: none at 280–414px, including pathological
-		   content). 16px sidesteps the zoom trigger entirely. */
-		font-size: 16px;
+		font-size: 0.85rem;
 		font-family: inherit;
 	}
 	.search input::placeholder {
