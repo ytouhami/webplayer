@@ -179,9 +179,6 @@
 		border-left: 2px solid transparent;
 		cursor: pointer;
 		transition: background 0.15s ease, border-color 0.15s ease;
-		/* See live/+page.svelte's identical rule for why. */
-		content-visibility: auto;
-		contain-intrinsic-size: auto 55px;
 	}
 	.channel-item:hover {
 		background: var(--veil-a);
